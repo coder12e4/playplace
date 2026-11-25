@@ -35,6 +35,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -145,31 +146,39 @@ class _SplashScreenState extends State<SplashScreen> {
 // ---------- Model ----------
 class VoiceTrigger {
   VoiceTrigger(this.name, this.path, this.point, this.radius,
-      {this.approachPath, this.approachRadius = 400});
+      {this.approachPath,
+      this.approachRadius = 400,
+      this.languageCode = 'en-US',
+      this.arrivalTemplate = 'You have arrived at {name}.',
+      this.approachTemplate = 'You are approaching {name}.'});
   String name;
-  String path; // "arrived" voice
+  String? path;
   LatLng point;
-  double radius; // meters
-  String? approachPath; // optional "approaching" voice
-  double approachRadius; // meters
+  double radius;
+  String? approachPath;
+  double approachRadius;
+  String languageCode;
+  String arrivalTemplate;
+  String approachTemplate;
 
   Map<String, dynamic> toJson() => {
-    'n': name,
-    'p': path,
-    'lat': point.latitude,
-    'lng': point.longitude,
-    'r': radius,
-    'ap': approachPath,
-    'ar': approachRadius,
+    'n': name, 'p': path, 'lat': point.latitude, 'lng': point.longitude,
+    'r': radius, 'ap': approachPath, 'ar': approachRadius,
+    'lang': languageCode,
+    'arrivalTemplate': arrivalTemplate,
+    'approachTemplate': approachTemplate,
   };
 
   factory VoiceTrigger.fromJson(Map<String, dynamic> j) => VoiceTrigger(
-    j['n'],
-    j['p'],
-    LatLng(j['lat'], j['lng']),
+    j['n'] as String? ?? 'Location',
+    j['p'] as String?,
+    LatLng((j['lat'] as num).toDouble(), (j['lng'] as num).toDouble()),
     (j['r'] as num).toDouble(),
-    approachPath: j['ap'],
+    approachPath: j['ap'] as String?,
     approachRadius: (j['ar'] as num?)?.toDouble() ?? 400,
+    languageCode: j['lang'] as String? ?? 'en-US',
+    arrivalTemplate: j['arrivalTemplate'] as String? ?? 'You have arrived at {name}.',
+    approachTemplate: j['approachTemplate'] as String? ?? 'You are approaching {name}.',
   );
 }
 
@@ -235,6 +244,8 @@ class RouteProgressController extends Notifier<RouteProgress> {
   void advance(int count) => state = RouteProgress(
         nextIndex: count == 0 ? 0 : (state.nextIndex + 1) % count,
       );
+  void resetApproached() =>
+      state = RouteProgress(nextIndex: state.nextIndex, approached: false);
   void normalize(int count) {
     if (count == 0 || state.nextIndex >= count) {
       state = const RouteProgress();
@@ -257,12 +268,15 @@ class Home extends ConsumerStatefulWidget {
 
 class _HomeState extends ConsumerState<Home> {
   final player = AudioPlayer();
+  final FlutterTts tts = FlutterTts();
   StreamSubscription<Position>? sub;
+  bool announcing = false;
 
   @override
   void initState() {
     super.initState();
     ref.read(voiceTriggersProvider.notifier).load();
+    _initializeTts();
     _startTracking();
   }
 
@@ -270,7 +284,42 @@ class _HomeState extends ConsumerState<Home> {
   void dispose() {
     sub?.cancel();
     player.dispose();
+    tts.stop();
     super.dispose();
+  }
+
+  Future<void> _initializeTts() async {
+    await tts.setSpeechRate(0.45);
+    await tts.setPitch(1.0);
+    await tts.awaitSpeakCompletion(true);
+  }
+
+  Future<void> _announce(VoiceTrigger trigger, {required bool arrived}) async {
+    if (announcing) return;
+    announcing = true;
+    try {
+      final audioPath = arrived ? trigger.path : trigger.approachPath;
+      if (audioPath != null && await File(audioPath).exists()) {
+        await tts.stop();
+        await player.stop();
+        await player.play(DeviceFileSource(audioPath));
+        return;
+      }
+      final template = arrived ? trigger.arrivalTemplate : trigger.approachTemplate;
+      final fallback = arrived
+          ? 'You have arrived at ${trigger.name}.'
+          : 'You are approaching ${trigger.name}.';
+      final message = template.trim().isEmpty
+          ? fallback
+          : template.replaceAll('{name}', trigger.name);
+      await player.stop();
+      await tts.setLanguage(trigger.languageCode);
+      await tts.speak(message);
+    } catch (error) {
+      debugPrint('Voice announcement failed: $error');
+    } finally {
+      announcing = false;
+    }
   }
 
   Future<void> _startTracking() async {
@@ -307,25 +356,22 @@ class _HomeState extends ConsumerState<Home> {
 
   void _onPosition(Position pos) {
     final triggers = ref.read(voiceTriggersProvider);
-    if (triggers.isEmpty) return;
+    if (triggers.isEmpty || announcing) return;
     final progress = ref.read(routeProgressProvider);
     final index = progress.nextIndex >= triggers.length ? 0 : progress.nextIndex;
     final trigger = triggers[index];
     final distance = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      trigger.point.latitude,
-      trigger.point.longitude,
+      pos.latitude, pos.longitude,
+      trigger.point.latitude, trigger.point.longitude,
     );
-
     if (distance <= trigger.radius) {
-      player.play(DeviceFileSource(trigger.path));
+      _announce(trigger, arrived: true);
       ref.read(routeProgressProvider.notifier).advance(triggers.length);
-    } else if (!progress.approached &&
-        trigger.approachPath != null &&
-        distance <= trigger.approachRadius) {
+    } else if (!progress.approached && distance <= trigger.approachRadius) {
       ref.read(routeProgressProvider.notifier).markApproached();
-      player.play(DeviceFileSource(trigger.approachPath!));
+      _announce(trigger, arrived: false);
+    } else if (distance > trigger.approachRadius && progress.approached) {
+      ref.read(routeProgressProvider.notifier).resetApproached();
     }
   }
 
@@ -390,7 +436,7 @@ class _HomeState extends ConsumerState<Home> {
               itemBuilder: (_, index) {
                 final trigger = triggers[index];
                 return ListTile(
-                  key: ValueKey(trigger.path),
+                  key: ValueKey('${trigger.name}_${trigger.point.latitude}_${trigger.point.longitude}'),
                   selected: index == progress.nextIndex,
                   onTap: () => ref
                       .read(routeProgressProvider.notifier)
@@ -403,8 +449,7 @@ class _HomeState extends ConsumerState<Home> {
                   ),
                   leading: IconButton(
                     icon: const Icon(Icons.play_arrow),
-                    onPressed: () =>
-                        player.play(DeviceFileSource(trigger.path)),
+                    onPressed: () => _announce(trigger, arrived: true),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
@@ -427,6 +472,13 @@ class AddPage extends StatefulWidget {
 class _AddPageState extends State<AddPage> {
   final rec = AudioRecorder();
   final nameCtl = TextEditingController();
+  final arrivalCtl = TextEditingController();
+  final approachCtl = TextEditingController();
+  final previewTts = FlutterTts();
+  String languageCode = 'en-US';
+  Position? currentPosition;
+  final MapController mapController = MapController();
+  bool mapReady = false;
   String? path; // arrived voice
   String? approachPath; // optional approaching voice
   String? recordingWhich; // 'arrive' | 'approach' | null
@@ -439,13 +491,18 @@ class _AddPageState extends State<AddPage> {
   @override
   void initState() {
     super.initState();
+    arrivalCtl.text = 'You have arrived at {name}.';
+    approachCtl.text = 'You are approaching {name}.';
     _locate();
   }
 
   @override
   void dispose() {
     rec.dispose();
+    previewTts.stop();
     nameCtl.dispose();
+    arrivalCtl.dispose();
+    approachCtl.dispose();
     super.dispose();
   }
 
@@ -477,15 +534,18 @@ class _AddPageState extends State<AddPage> {
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: Duration(seconds: 20),
         ),
       );
       final current = LatLng(position.latitude, position.longitude);
       if (!mounted) return;
       setState(() {
+        currentPosition = position;
         center = current;
         point = current;
       });
+      if (mapReady) mapController.move(current, 18);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Location fetched (±${position.accuracy.toStringAsFixed(0)} m)'),
@@ -546,17 +606,41 @@ class _AddPageState extends State<AddPage> {
     ]);
   }
 
+  Future<void> _previewSpeech({required bool arrived}) async {
+    final name = nameCtl.text.trim().isEmpty ? 'this location' : nameCtl.text.trim();
+    final template = arrived ? arrivalCtl.text : approachCtl.text;
+    final fallback = arrived ? 'You have arrived at $name.' : 'You are approaching $name.';
+    final message = template.trim().isEmpty ? fallback : template.replaceAll('{name}', name);
+    try {
+      await previewTts.setLanguage(languageCode);
+      await previewTts.setSpeechRate(0.45);
+      await previewTts.speak(message);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('TTS preview failed: $error')),
+      );
+    }
+  }
+
   void _saveAndClose() {
-    if (path == null || point == null || recording) {
+    if (point == null || recording) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Record a voice and tap the map to pick a spot.')));
+          content: Text('Select a map location and stop any active recording.')));
       return;
     }
-    final name = nameCtl.text.trim().isEmpty ? 'Voice' : nameCtl.text.trim();
+    final name = nameCtl.text.trim().isEmpty ? 'Location' : nameCtl.text.trim();
     Navigator.pop(
-        context,
-        VoiceTrigger(name, path!, point!, radius,
-            approachPath: approachPath, approachRadius: approachRadius));
+      context,
+      VoiceTrigger(
+        name, path, point!, radius,
+        approachPath: approachPath,
+        approachRadius: approachRadius,
+        languageCode: languageCode,
+        arrivalTemplate: arrivalCtl.text.trim(),
+        approachTemplate: approachCtl.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -577,6 +661,51 @@ class _AddPageState extends State<AddPage> {
               _recordRow('Arrived voice', 'arrive', path),
               _recordRow(
                   'Approaching voice (optional)', 'approach', approachPath),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: languageCode,
+                decoration: const InputDecoration(labelText: 'Announcement language', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
+                  DropdownMenuItem(value: 'en-IN', child: Text('English (India)')),
+                  DropdownMenuItem(value: 'ml-IN', child: Text('Malayalam')),
+                  DropdownMenuItem(value: 'hi-IN', child: Text('Hindi')),
+                  DropdownMenuItem(value: 'ta-IN', child: Text('Tamil')),
+                ],
+                onChanged: (value) { if (value != null) setState(() => languageCode = value); },
+              ),
+              TextField(
+                controller: approachCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Automatic approaching message',
+                  helperText: 'Use {name} for the location name.',
+                  isDense: true,
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _previewSpeech(arrived: false),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Preview approach'),
+                ),
+              ),
+              TextField(
+                controller: arrivalCtl,
+                decoration: const InputDecoration(
+                  labelText: 'Automatic arrival message',
+                  helperText: 'Use {name} for the location name.',
+                  isDense: true,
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _previewSpeech(arrived: true),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Preview arrival'),
+                ),
+              ),
             ]),
           ),
           Row(children: [
@@ -620,13 +749,15 @@ class _AddPageState extends State<AddPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey, fontSize: 12),
                   )
-                else
-                  Text(
-                    'Latitude: ${point!.latitude.toStringAsFixed(6)}    '
-                    'Longitude: ${point!.longitude.toStringAsFixed(6)}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+                else ...[
+                  Text('Latitude: ${point!.latitude.toStringAsFixed(7)}',
+                      textAlign: TextAlign.center),
+                  Text('Longitude: ${point!.longitude.toStringAsFixed(7)}',
+                      textAlign: TextAlign.center),
+                  if (currentPosition != null)
+                    Text('GPS accuracy: ±${currentPosition!.accuracy.toStringAsFixed(1)} m',
+                        textAlign: TextAlign.center),
+                ],
               ],
             ),
           ),
@@ -634,9 +765,11 @@ class _AddPageState extends State<AddPage> {
             child: center == null
                 ? const Center(child: CircularProgressIndicator())
                 : FlutterMap(
+              mapController: mapController,
               options: MapOptions(
                 initialCenter: center!,
                 initialZoom: 16,
+                onMapReady: () => mapReady = true,
                 onTap: (_, p) => setState(() => point = p),
               ),
               children: [
