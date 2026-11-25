@@ -197,7 +197,15 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     final stop = _currentStop;
     return Scaffold(
       appBar: AppBar(title: Text(widget.route.name)),
-      body: Padding(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+          ),
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -278,6 +286,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
