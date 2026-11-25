@@ -405,7 +405,15 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('Bus route registration')),
-      body: ListView(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+          ),
+        ),
+        child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
@@ -580,6 +588,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }
