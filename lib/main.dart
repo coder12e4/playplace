@@ -414,6 +414,46 @@ class _HomeState extends ConsumerState<Home> {
         .listen(_onPosition);
   }
 
+  void _showLocationNotification({
+    required String title,
+    required String message,
+    required IconData icon,
+  }) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFF8FFF9),
+        elevation: 8,
+        duration: const Duration(seconds: 5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFF8FC6A1)),
+        ),
+        content: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF328B55), size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(
+                    color: Color(0xFF17452D), fontWeight: FontWeight.w700,
+                  )),
+                  Text(message, style: const TextStyle(color: Color(0xFF52745E))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _onPosition(Position pos) {
     final triggers = ref.read(voiceTriggersProvider);
     if (triggers.isEmpty || announcing) return;
@@ -425,10 +465,20 @@ class _HomeState extends ConsumerState<Home> {
       trigger.point.latitude, trigger.point.longitude,
     );
     if (distance <= trigger.radius) {
+      _showLocationNotification(
+        title: 'Arrived at ${trigger.name}',
+        message: 'You have reached this saved location.',
+        icon: Icons.location_on,
+      );
       _announce(trigger, arrived: true);
       ref.read(routeProgressProvider.notifier).advance(triggers.length);
     } else if (!progress.approached && distance <= trigger.approachRadius) {
       ref.read(routeProgressProvider.notifier).markApproached();
+      _showLocationNotification(
+        title: 'Approaching ${trigger.name}',
+        message: 'About ${distance.round()} m away.',
+        icon: Icons.near_me,
+      );
       _announce(trigger, arrived: false);
     } else if (distance > trigger.approachRadius && progress.approached) {
       ref.read(routeProgressProvider.notifier).resetApproached();
