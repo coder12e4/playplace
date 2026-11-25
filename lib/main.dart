@@ -63,48 +63,64 @@ class PlayPlaceApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF071C16),
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFEAF8EF),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF20C878),
-          brightness: Brightness.dark,
-          surface: const Color(0xFF102D23),
+          seedColor: const Color(0xFF55B879),
+          brightness: Brightness.light,
+          surface: const Color(0xFFF5FCF7),
+          primary: const Color(0xFF328B55),
+          onPrimary: Colors.white,
+          secondary: const Color(0xFF8BCFA3),
+          onSurface: const Color(0xFF173D29),
+        ),
+        textTheme: ThemeData.light().textTheme.apply(
+          bodyColor: const Color(0xFF173D29),
+          displayColor: const Color(0xFF173D29),
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
-          foregroundColor: Color(0xFFE9FFF3),
+          foregroundColor: Color(0xFF17452D),
           elevation: 0,
           centerTitle: false,
         ),
         cardTheme: CardThemeData(
-          color: const Color(0xFFB9F6D0).withOpacity(0.09),
+          color: const Color(0xDDFBFFFC),
           elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-            side: BorderSide(color: Colors.white.withOpacity(0.14)),
+            side: BorderSide(color: const Color(0xFF80B996).withOpacity(0.28)),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white.withOpacity(0.07),
-          labelStyle: const TextStyle(color: Color(0xFFB7DCC8)),
-          hintStyle: const TextStyle(color: Color(0xFF8DA99A)),
+          fillColor: const Color(0xDDFBFFFC),
+          labelStyle: const TextStyle(color: Color(0xFF47775A)),
+          hintStyle: const TextStyle(color: Color(0xFF779582)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.16)),
+            borderSide: const BorderSide(color: Color(0x3380B996)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.13)),
+            borderSide: const BorderSide(color: Color(0x3380B996)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF42E695), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF55A875), width: 1.5),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF4EAA70),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF28D17C),
-          foregroundColor: Color(0xFF062116),
+          backgroundColor: Color(0xFF4EAA70),
+          foregroundColor: Colors.white,
         ),
       ),
       home: const SplashScreen(),
@@ -142,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071C16),
+      backgroundColor: const Color(0xFFEAF8EF),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -151,7 +167,7 @@ class _SplashScreenState extends State<SplashScreen> {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: const Color(0xFF20C878),
+                color: const Color(0xFF65BD83),
                 borderRadius: BorderRadius.circular(26),
               ),
               child: const Icon(Icons.place_rounded, color: Colors.white, size: 52),
@@ -169,7 +185,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 8),
             const Text(
               'Location-aware audio for everyone',
-              style: TextStyle(color: Color(0xFFB8C2D1), fontSize: 14),
+              style: TextStyle(color: Color(0xFF62816D), fontSize: 14),
             ),
             const SizedBox(height: 34),
             const SizedBox(
@@ -177,7 +193,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF42E695)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4EAA70)),
               ),
             ),
           ],
@@ -472,7 +488,7 @@ class _HomeState extends ConsumerState<Home> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+            colors: [Color(0xFFF2FBF5), Color(0xFFE2F4E8), Color(0xFFD5EEDD)],
           ),
         ),
         child: triggers.isEmpty
@@ -496,9 +512,9 @@ class _HomeState extends ConsumerState<Home> {
                       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.075),
+                          color: Colors.white.withOpacity(0.68),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.14)),
+                          border: Border.all(color: const Color(0xFF80B996).withOpacity(0.30)),
                         ),
                         child: ListTile(
                   selected: index == progress.nextIndex,
