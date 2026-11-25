@@ -10,7 +10,7 @@ class _DriverCalendarPageState extends State<DriverCalendarPage> {
  DateTime _month=DateTime(DateTime.now().year,DateTime.now().month),_selected=DateTime.now();
  List<DriverTripRecord> _records=[];bool _loading=true;
  @override void initState(){super.initState();_load();}
- Future<void> _load() async {final r=await DriverPerformanceStore.load();if(mounted)setState(()=>_records=r);}
+ Future<void> _load() async {final r=await DriverPerformanceStore.load();if(mounted)setState(()=>{_records=r;_loading=false;});}
  List<DriverTripRecord> _day(DateTime d)=>_records.where((r)=>r.startedAt.year==d.year&&r.startedAt.month==d.month&&r.startedAt.day==d.day).toList();
  @override Widget build(BuildContext context){
  final count=DateUtils.getDaysInMonth(_month.year,_month.month),offset=DateTime(_month.year,_month.month,1).weekday-1;
@@ -27,15 +27,15 @@ class _DriverCalendarPageState extends State<DriverCalendarPage> {
  ]))),
  const SizedBox(height:14),Text('Monthly overview',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:8),
  Row(children:[_metric('Trips',monthly.length.toString(),Icons.route),const SizedBox(width:8),_metric('Distance',km.toStringAsFixed(1)+' km',Icons.straighten)]),
- const SizedBox(height:8),Row(children:[_metric('Avg speed',speed.toStringAsFixed(1)+' km/h',Icons.speed),const SizedBox(width:8),_metric('GPS accuracy',monthly.isEmpty?'—':'±'+accuracy.toStringAsFixed(0)+' m',Icons.gps_fixed)]),
+ const SizedBox(height:8),Row(children:[_metric('Avg speed',speed.toStringAsFixed(1)+' km/h',Icons.speed),const SizedBox(width:8),_metric('GPS accuracy',monthly.isEmpty || accuracy == 0 ? '—' : '±'+accuracy.toStringAsFixed(0)+' m',Icons.gps_fixed)]),
  const SizedBox(height:18),Text('Daily average speed',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),GlassCard(child:Padding(padding:const EdgeInsets.all(14),child:_graph(monthly))),
  const SizedBox(height:18),Text('Trips on '+_selected.day.toString().padLeft(2,'0')+'/'+_selected.month.toString().padLeft(2,'0')+'/'+_selected.year.toString(),style:Theme.of(context).textTheme.titleMedium),
  if(selected.isEmpty)const Padding(padding:EdgeInsets.symmetric(vertical:16),child:Text('No completed route sessions on this day.'))
  else for(final r in selected)Padding(padding:const EdgeInsets.only(top:8),child:GlassCard(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
  Text(r.routeName,style:const TextStyle(fontWeight:FontWeight.w700)),const SizedBox(height:8),
- Wrap(spacing:14,runSpacing:8,children:[_detail(Icons.timer,_duration(r.durationSeconds)),_detail(Icons.route,(r.distanceMeters/1000).toStringAsFixed(2)+' km'),_detail(Icons.speed,r.averageSpeedKmh.toStringAsFixed(1)+' km/h'),_detail(Icons.gps_fixed,'±'+r.averageAccuracyMeters.toStringAsFixed(0)+' m'),_detail(Icons.place,r.stopsCompleted.toString()+' stops')]),
+ Wrap(spacing:14,runSpacing:8,children:[_detail(Icons.timer,_duration(r.durationSeconds)),_detail(Icons.route,(r.distanceMeters/1000).toStringAsFixed(2)+' km'),_detail(Icons.speed,r.averageSpeedKmh.toStringAsFixed(1)+' km/h'),_detail(Icons.gps_fixed,r.averageAccuracyMeters == 0 ? 'No GPS accuracy data' : '±'+r.averageAccuracyMeters.toStringAsFixed(0)+' m'),_detail(Icons.place,r.stopsCompleted.toString()+' stops')]),
  const SizedBox(height:5),Text(TimeOfDay.fromDateTime(r.startedAt).format(context)+' – '+TimeOfDay.fromDateTime(r.endedAt).format(context),style:const TextStyle(fontSize:12,color:Color(0xFF62816D))),
- ]))))),
+ ])))),
  ])));
  }
  Widget _metric(String l,String v,IconData i)=>Expanded(child:GlassCard(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(i,color:const Color(0xFF328B55)),const SizedBox(height:7),Text(v,style:const TextStyle(fontSize:18,fontWeight:FontWeight.w700)),Text(l,style:const TextStyle(fontSize:11,color:Color(0xFF62816D)))]))));
