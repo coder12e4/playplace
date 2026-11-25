@@ -262,6 +262,19 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       );
       return;
     }
+    final incompleteStop = _stops.indexWhere(
+      (stop) => stop.arrivingAudio == null || stop.arrivedAudio == null,
+    );
+    if (incompleteStop != -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Record both arriving and arrived voices for ${_stops[incompleteStop].name}.',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
     final route = BusRoute(
       name: name,
