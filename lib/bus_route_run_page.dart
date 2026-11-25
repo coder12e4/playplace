@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'glass_card.dart';
+import 'driver_performance.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'bus_routes_page.dart';
@@ -32,6 +33,17 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   bool _finished = false;
   bool _pausedWithAudio = false;
   String _status = 'Ready to start';
+  DateTime? _startedAt;
+  final Stopwatch _activeClock = Stopwatch();
+  Position? _lastGoodPosition;
+  double _distanceTravelledMeters = 0;
+  double _accuracyTotalMeters = 0;
+  int _accuracySamples = 0;
+  bool _recordSaved = false;
+
+  double get _averageAccuracy => _accuracySamples == 0 ? 0 : _accuracyTotalMeters / _accuracySamples;
+  double get _averageSpeedKmh => _activeClock.elapsed.inSeconds == 0 ? 0 :
+      (_distanceTravelledMeters / 1000) / (_activeClock.elapsed.inSeconds / 3600);
 
   BusStop? get _currentStop =>
       _stopIndex < widget.route.stops.length ? widget.route.stops[_stopIndex] : null;
@@ -70,6 +82,9 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
         locationSettings: settings,
       );
       if (!mounted) return;
+      _startedAt ??= DateTime.now();
+      _activeClock.start();
+      _lastGoodPosition = null;
       if (_pausedWithAudio) {
         await _player.resume();
         _pausedWithAudio = false;
@@ -104,6 +119,8 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
     await _player.pause();
+    _activeClock.stop();
+    _lastGoodPosition = null;
     _pausedWithAudio = true;
     if (mounted) {
       setState(() {
@@ -117,6 +134,8 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
     await _player.stop();
+    _activeClock.stop();
+    await _savePerformanceRecord();
     if (mounted) {
       setState(() {
         _running = false;
@@ -166,9 +185,45 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     );
   }
 
+  void _capturePerformancePosition(Position position) {
+    // Discard weak fixes so GPS drift does not inflate the route distance.
+    if (position.accuracy <= 0 || position.accuracy > 50) return;
+    _accuracyTotalMeters += position.accuracy;
+    _accuracySamples++;
+    final previous = _lastGoodPosition;
+    if (previous != null) {
+      final delta = Geolocator.distanceBetween(previous.latitude, previous.longitude,
+        position.latitude, position.longitude);
+      // Ignore stationary GPS jitter and implausible jumps between fixes.
+      if (delta >= 2 && delta <= 400) _distanceTravelledMeters += delta;
+    }
+    _lastGoodPosition = position;
+  }
+
+  Future<void> _savePerformanceRecord() async {
+    if (_recordSaved || _startedAt == null) return;
+    _recordSaved = true;
+    final ended = DateTime.now();
+    final seconds = _activeClock.elapsed.inSeconds;
+    final record = DriverTripRecord(
+      id: '${widget.route.name}_${_startedAt!.microsecondsSinceEpoch}',
+      routeName: widget.route.name,
+      startedAt: _startedAt!,
+      endedAt: ended,
+      durationSeconds: seconds,
+      distanceMeters: _distanceTravelledMeters,
+      averageSpeedKmh: seconds == 0 ? 0 : (_distanceTravelledMeters / 1000) / (seconds / 3600),
+      averageAccuracyMeters: _averageAccuracy,
+      stopsCompleted: _stopIndex,
+    );
+    await DriverPerformanceStore.save(record);
+  }
+
   Future<void> _handlePosition(Position position) async {
+    if (!_running) return;
+    _capturePerformancePosition(position);
     final stop = _currentStop;
-    if (!_running || stop == null || _processing) return;
+    if (stop == null || _processing) return;
     final distance = Geolocator.distanceBetween(
       position.latitude,
       position.longitude,
@@ -218,6 +273,10 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
               _status = 'Next stop: ${_currentStop!.name}';
             }
           });
+        }
+        if (_finished) {
+          _activeClock.stop();
+          await _savePerformanceRecord();
         }
       }
     } finally {
@@ -296,6 +355,9 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
                           ? 'Waiting for GPS location'
                           : '${_distanceMeters!.round()} m away'),
                       const Divider(height: 24),
+                      Text('Trip distance: ${(_distanceTravelledMeters / 1000).toStringAsFixed(2)} km'),
+                      Text('Average speed: ${_averageSpeedKmh.toStringAsFixed(1)} km/h'),
+                      Text('GPS accuracy: ${_accuracySamples == 0 ? 'Waiting for GPS' : '±${_averageAccuracy.toStringAsFixed(0)} m'}'),
                       Text('Arriving announcement: ${stop.arrivingRepeatCount}×'),
                       Text('Arrived announcement: ${stop.arrivedRepeatCount}×'),
                       const SizedBox(height: 8),
