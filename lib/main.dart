@@ -45,6 +45,7 @@ import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bus_routes_page.dart';
+import 'driver_calendar_page.dart';
 
 
 
@@ -525,6 +526,14 @@ class _HomeState extends ConsumerState<Home> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const BusRoutesPage()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Driver calendar and performance',
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DriverCalendarPage()),
             ),
           ),
         ],
