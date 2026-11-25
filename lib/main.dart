@@ -739,7 +739,7 @@ class _AddPageState extends State<AddPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+            colors: [Color(0xFFF2FBF5), Color(0xFFE2F4E8), Color(0xFFD5EEDD)],
           ),
         ),
         child: Column(
@@ -756,9 +756,9 @@ class _AddPageState extends State<AddPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.075),
+                    color: Colors.white.withOpacity(0.72),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: Colors.white.withOpacity(0.14)),
+                    border: Border.all(color: const Color(0xFF80B996).withOpacity(0.30)),
                   ),
                   child: Column(children: [
               TextField(
