@@ -42,6 +42,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'bus_routes_page.dart';
 
 
 
@@ -359,7 +360,19 @@ class _HomeState extends ConsumerState<Home> {
     final progress = ref.watch(routeProgressProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('PlayPlace')),
+      appBar: AppBar(
+        title: const Text('PlayPlace'),
+        actions: [
+          IconButton(
+            tooltip: 'Bus routes',
+            icon: const Icon(Icons.directions_bus),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BusRoutesPage()),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _add,
         child: const Icon(Icons.add),
