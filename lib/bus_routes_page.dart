@@ -472,8 +472,8 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                           width: 42,
                           height: 42,
                           child: CircleAvatar(
-                            backgroundColor: Colors.blue,
-                            child: Text('${i + 1}', style: const TextStyle(color: const Color(0xFF173D29))),
+                            backgroundColor: const Color(0xFF4EAA70),
+                            child: Text('${i + 1}', style: const TextStyle(color: Colors.white)),
                           ),
                         ),
                       if (_destination != null)
@@ -557,7 +557,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
               child: Text('Your registered routes will appear here.'),
             ),
           for (var i = 0; i < _savedRoutes.length; i++)
-            Card(
+            GlassCard(
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.directions_bus)),
                 title: Text(_savedRoutes[i].name),
