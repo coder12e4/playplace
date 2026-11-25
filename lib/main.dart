@@ -32,6 +32,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -60,8 +61,51 @@ class PlayPlaceApp extends StatelessWidget {
       title: 'PlayPlace',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
+        fontFamily: 'Roboto',
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF071C16),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF20C878),
+          brightness: Brightness.dark,
+          surface: const Color(0xFF102D23),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Color(0xFFE9FFF3),
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFFB9F6D0).withOpacity(0.09),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: Colors.white.withOpacity(0.14)),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.07),
+          labelStyle: const TextStyle(color: Color(0xFFB7DCC8)),
+          hintStyle: const TextStyle(color: Color(0xFF8DA99A)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.16)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.13)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF42E695), width: 1.5),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFF28D17C),
+          foregroundColor: Color(0xFF062116),
+        ),
       ),
       home: const SplashScreen(),
     );
@@ -98,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: const Color(0xFF071C16),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,7 +151,7 @@ class _SplashScreenState extends State<SplashScreen> {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: const Color(0xFF2563EB),
+                color: const Color(0xFF20C878),
                 borderRadius: BorderRadius.circular(26),
               ),
               child: const Icon(Icons.place_rounded, color: Colors.white, size: 52),
@@ -133,7 +177,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF42E695)),
               ),
             ),
           ],
@@ -423,9 +467,17 @@ class _HomeState extends ConsumerState<Home> {
         onPressed: _add,
         child: const Icon(Icons.add),
       ),
-      body: triggers.isEmpty
-          ? const Center(child: Text('No voices yet. Tap + to add one.'))
-          : ReorderableListView.builder(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+          ),
+        ),
+        child: triggers.isEmpty
+            ? const Center(child: Text('No voices yet. Tap + to add one.'))
+            : ReorderableListView.builder(
               itemCount: triggers.length,
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex--;
@@ -435,8 +487,20 @@ class _HomeState extends ConsumerState<Home> {
               },
               itemBuilder: (_, index) {
                 final trigger = triggers[index];
-                return ListTile(
+                return Padding(
                   key: ValueKey('${trigger.name}_${trigger.point.latitude}_${trigger.point.longitude}'),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.075),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.14)),
+                        ),
+                        child: ListTile(
                   selected: index == progress.nextIndex,
                   onTap: () => ref
                       .read(routeProgressProvider.notifier)
@@ -452,12 +516,17 @@ class _HomeState extends ConsumerState<Home> {
                     onPressed: () => _announce(trigger, arrived: true),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete),
+                    icon: const Icon(Icons.delete_outline, color: Color(0xFFFFA7A7)),
                     onPressed: () => _delete(index),
+                  ),
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },
             ),
+      ),
     );
   }
 }
@@ -649,11 +718,32 @@ class _AddPageState extends State<AddPage> {
       appBar: AppBar(title: const Text('New voice trigger'), actions: [
         TextButton(onPressed: _saveAndClose, child: const Text('Save')),
       ]),
-      body: Column(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+          ),
+        ),
+        child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            child: Column(children: [
+          Expanded(
+            flex: 0,
+            child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.075),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: Colors.white.withOpacity(0.14)),
+                  ),
+                  child: Column(children: [
               TextField(
                 controller: nameCtl,
                 decoration: const InputDecoration(labelText: 'Stop name'),
@@ -723,7 +813,10 @@ class _AddPageState extends State<AddPage> {
                   label: const Text('Preview arrival'),
                 ),
               ),
-            ]),
+                  ]),
+                ),
+              ),
+            ),
           ),
           Row(children: [
             const SizedBox(width: 12),
@@ -779,7 +872,11 @@ class _AddPageState extends State<AddPage> {
             ),
           ),
           Expanded(
-            child: center == null
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: center == null
                 ? const Center(child: CircularProgressIndicator())
                 : FlutterMap(
               mapController: mapController,
@@ -817,9 +914,12 @@ class _AddPageState extends State<AddPage> {
                     ),
                   ]),
               ],
+                ),
+              ),
             ),
           ),
         ],
+      ),
       ),
     );
   }
