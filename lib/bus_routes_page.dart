@@ -356,7 +356,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
           ),
         ),
         DropdownButton<int>(
-          value: repeatCount.clamp(1, 10),
+          value: repeatCount.clamp(1, 10).toInt(),
           underline: const SizedBox.shrink(),
           isDense: true,
           items: List.generate(10, (i) => i + 1)
