@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'glass_card.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'bus_routes_page.dart';
@@ -202,7 +203,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+            colors: [Color(0xFFF2FBF5), Color(0xFFE2F4E8), Color(0xFFD5EEDD)],
           ),
         ),
         child: Padding(
@@ -219,7 +220,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             ),
             const SizedBox(height: 20),
             if (stop == null)
-              const Card(
+              const GlassCard(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Text('All registered stops have been completed.'),
@@ -282,7 +283,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             const Text(
               'Keep PlayPlace open while driving. GPS announcements may pause if the operating system stops the app in the background.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Color(0xFF62816D)),
             ),
           ],
         ),
