@@ -819,6 +819,7 @@ class _AddPageState extends State<AddPage> {
               ),
             ),
           ),
+          ),
           Row(children: [
             const SizedBox(width: 12),
             Text('Arrived: ${radius.round()} m'),
