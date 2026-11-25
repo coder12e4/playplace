@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'bus_route_run_page.dart';
 import 'package:flutter/material.dart';
+import 'glass_card.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -391,7 +392,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
           ),
         ),
         if (path != null && !active)
-          const Icon(Icons.check_circle, color: Colors.green, size: 18),
+          const Icon(Icons.check_circle, color: const Color(0xFF328B55), size: 18),
       ],
     );
   }
@@ -410,7 +411,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF123D2B), Color(0xFF071C16), Color(0xFF0B2A20)],
+            colors: [Color(0xFFF2FBF5), Color(0xFFE2F4E8), Color(0xFFD5EEDD)],
           ),
         ),
         child: ListView(
@@ -454,7 +455,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                   ),
                   if (points.length > 1)
                     PolylineLayer(polylines: [
-                      Polyline(points: points, strokeWidth: 4, color: Colors.blue),
+                      Polyline(points: points, strokeWidth: 4, color: const Color(0xFF4EAA70)),
                     ]),
                   MarkerLayer(
                     markers: [
@@ -472,7 +473,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                           height: 42,
                           child: CircleAvatar(
                             backgroundColor: Colors.blue,
-                            child: Text('${i + 1}', style: const TextStyle(color: Colors.white)),
+                            child: Text('${i + 1}', style: const TextStyle(color: const Color(0xFF173D29))),
                           ),
                         ),
                       if (_destination != null)
@@ -480,7 +481,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                           point: _destination!,
                           width: 42,
                           height: 42,
-                          child: const Icon(Icons.flag, color: Colors.red, size: 34),
+                          child: const Icon(Icons.flag, color: const Color(0xFFCF665E), size: 34),
                         ),
                     ],
                   ),
@@ -502,7 +503,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
               child: Text('Choose “Add stop” and tap each stop location on the map.'),
             ),
           for (var i = 0; i < _stops.length; i++)
-            Card(
+            GlassCard(
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
