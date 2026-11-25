@@ -34,7 +34,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -42,10 +41,105 @@ import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
 
-void main() => runApp(const MaterialApp(home: Home()));
+void main() {
+  runApp(const ProviderScope(child: PlayPlaceApp()));
+}
+
+class PlayPlaceApp extends StatelessWidget {
+  const PlayPlaceApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'PlayPlace',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+        useMaterial3: true,
+      ),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(milliseconds: 1600), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const Home()),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF101827),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Icon(Icons.place_rounded, color: Colors.white, size: 52),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'PlayPlace',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Location-aware audio for everyone',
+              style: TextStyle(color: Color(0xFFB8C2D1), fontSize: 14),
+            ),
+            const SizedBox(height: 34),
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ---------- Model ----------
 class VoiceTrigger {
@@ -78,24 +172,96 @@ class VoiceTrigger {
   );
 }
 
-// ---------- Home ----------
-class Home extends StatefulWidget {
-  const Home({super.key});
+// ---------- Riverpod application state ----------
+class VoiceTriggersController extends Notifier<List<VoiceTrigger>> {
   @override
-  State<Home> createState() => _HomeState();
+  List<VoiceTrigger> build() => [];
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList('triggers') ?? [];
+    state = raw.map((value) =>
+        VoiceTrigger.fromJson(jsonDecode(value) as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'triggers',
+      state.map((trigger) => jsonEncode(trigger.toJson())).toList(),
+    );
+  }
+
+  Future<void> add(VoiceTrigger trigger) async {
+    state = [...state, trigger];
+    await _persist();
+  }
+
+  Future<VoiceTrigger> removeAt(int index) async {
+    final updated = [...state];
+    final removed = updated.removeAt(index);
+    state = updated;
+    await _persist();
+    return removed;
+  }
+
+  Future<void> reorder(int oldIndex, int newIndex) async {
+    final updated = [...state];
+    updated.insert(newIndex, updated.removeAt(oldIndex));
+    state = updated;
+    await _persist();
+  }
 }
 
-class _HomeState extends State<Home> {
+final voiceTriggersProvider =
+    NotifierProvider<VoiceTriggersController, List<VoiceTrigger>>(
+  VoiceTriggersController.new,
+);
+
+class RouteProgress {
+  const RouteProgress({this.nextIndex = 0, this.approached = false});
+  final int nextIndex;
+  final bool approached;
+}
+
+class RouteProgressController extends Notifier<RouteProgress> {
+  @override
+  RouteProgress build() => const RouteProgress();
+
+  void select(int index) => state = RouteProgress(nextIndex: index);
+  void markApproached() =>
+      state = RouteProgress(nextIndex: state.nextIndex, approached: true);
+  void advance(int count) => state = RouteProgress(
+        nextIndex: count == 0 ? 0 : (state.nextIndex + 1) % count,
+      );
+  void normalize(int count) {
+    if (count == 0 || state.nextIndex >= count) {
+      state = const RouteProgress();
+    }
+  }
+}
+
+final routeProgressProvider =
+    NotifierProvider<RouteProgressController, RouteProgress>(
+  RouteProgressController.new,
+);
+
+// ---------- Home ----------
+class Home extends ConsumerStatefulWidget {
+  const Home({super.key});
+
+  @override
+  ConsumerState<Home> createState() => _HomeState();
+}
+
+class _HomeState extends ConsumerState<Home> {
   final player = AudioPlayer();
-  int next = 0; // index of the next stop to announce
-  bool approached = false; // "approaching" voice already played for next stop
-  List<VoiceTrigger> triggers = [];
   StreamSubscription<Position>? sub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    ref.read(voiceTriggersProvider.notifier).load();
     _startTracking();
   }
 
@@ -104,19 +270,6 @@ class _HomeState extends State<Home> {
     sub?.cancel();
     player.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    final p = await SharedPreferences.getInstance();
-    final raw = p.getStringList('triggers') ?? [];
-    setState(() => triggers =
-        raw.map((s) => VoiceTrigger.fromJson(jsonDecode(s))).toList());
-  }
-
-  Future<void> _save() async {
-    final p = await SharedPreferences.getInstance();
-    await p.setStringList(
-        'triggers', triggers.map((t) => jsonEncode(t.toJson())).toList());
   }
 
   Future<void> _startTracking() async {
@@ -131,111 +284,122 @@ class _HomeState extends State<Home> {
 
     final LocationSettings settings = Platform.isAndroid
         ? AndroidSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
-      // Foreground service keeps tracking alive when the app is minimized.
-      foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: 'Voice Trigger',
-        notificationText: 'Watching for your saved places',
-        enableWakeLock: true,
-      ),
-    )
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'PlayPlace',
+              notificationText: 'Watching for your saved places',
+              enableWakeLock: true,
+            ),
+          )
         : AppleSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
-      allowBackgroundLocationUpdates: true,
-      showBackgroundLocationIndicator: true,
-      pauseLocationUpdatesAutomatically: false,
-    );
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+            allowBackgroundLocationUpdates: true,
+            showBackgroundLocationIndicator: true,
+            pauseLocationUpdatesAutomatically: false,
+          );
 
     sub = Geolocator.getPositionStream(locationSettings: settings)
         .listen(_onPosition);
   }
 
   void _onPosition(Position pos) {
+    final triggers = ref.read(voiceTriggersProvider);
     if (triggers.isEmpty) return;
-    if (next >= triggers.length) next = 0;
-    final t = triggers[next];
-    final d = Geolocator.distanceBetween(
-        pos.latitude, pos.longitude, t.point.latitude, t.point.longitude);
-    if (d <= t.radius) {
-      player.play(DeviceFileSource(t.path)); // "arrived"
-      setState(() {
-        next = (next + 1) % triggers.length; // loop the route
-        approached = false;
-      });
-    } else if (!approached &&
-        t.approachPath != null &&
-        d <= t.approachRadius) {
-      approached = true;
-      player.play(DeviceFileSource(t.approachPath!)); // "approaching"
+    final progress = ref.read(routeProgressProvider);
+    final index = progress.nextIndex >= triggers.length ? 0 : progress.nextIndex;
+    final trigger = triggers[index];
+    final distance = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      trigger.point.latitude,
+      trigger.point.longitude,
+    );
+
+    if (distance <= trigger.radius) {
+      player.play(DeviceFileSource(trigger.path));
+      ref.read(routeProgressProvider.notifier).advance(triggers.length);
+    } else if (!progress.approached &&
+        trigger.approachPath != null &&
+        distance <= trigger.approachRadius) {
+      ref.read(routeProgressProvider.notifier).markApproached();
+      player.play(DeviceFileSource(trigger.approachPath!));
     }
   }
 
   Future<void> _add() async {
-    final t = await Navigator.push<VoiceTrigger>(
-        context, MaterialPageRoute(builder: (_) => const AddPage()));
-    if (t == null) return;
-    setState(() => triggers.add(t));
-    await _save();
+    final trigger = await Navigator.push<VoiceTrigger>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddPage()),
+    );
+    if (trigger == null || !mounted) return;
+    await ref.read(voiceTriggersProvider.notifier).add(trigger);
   }
 
-  Future<void> _delete(int i) async {
-    final t = triggers.removeAt(i);
-    if (next >= triggers.length) next = 0;
-    approached = false;
-    for (final f in [t.path, t.approachPath]) {
-      if (f == null) continue;
+  Future<void> _delete(int index) async {
+    final trigger =
+        await ref.read(voiceTriggersProvider.notifier).removeAt(index);
+    ref.read(routeProgressProvider.notifier).normalize(
+          ref.read(voiceTriggersProvider).length,
+        );
+    for (final file in [trigger.path, trigger.approachPath]) {
+      if (file == null) continue;
       try {
-        await File(f).delete();
-      } catch (_) {}
+        await File(file).delete();
+      } catch (_) {
+        // A missing recording should not prevent deleting its saved trigger.
+      }
     }
-    setState(() {});
-    await _save();
   }
 
   @override
   Widget build(BuildContext context) {
+    final triggers = ref.watch(voiceTriggersProvider);
+    final progress = ref.watch(routeProgressProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Voice Trigger')),
-      floatingActionButton:
-      FloatingActionButton(onPressed: _add, child: const Icon(Icons.add)),
+      appBar: AppBar(title: const Text('PlayPlace')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _add,
+        child: const Icon(Icons.add),
+      ),
       body: triggers.isEmpty
           ? const Center(child: Text('No voices yet. Tap + to add one.'))
           : ReorderableListView.builder(
-        itemCount: triggers.length,
-        onReorder: (a, b) {
-          if (b > a) b--;
-          setState(() {
-            triggers.insert(b, triggers.removeAt(a));
-            next = 0;
-            approached = false;
-          });
-          _save();
-        },
-        itemBuilder: (_, i) {
-          final t = triggers[i];
-          return ListTile(
-            key: ValueKey(t.path),
-            selected: i == next,
-            onTap: () => setState(() {
-              next = i;
-              approached = false;
-            }),
-            title: Text('${i + 1}. ${t.name}'),
-            subtitle: Text(
-                '${t.point.latitude.toStringAsFixed(5)}, ${t.point.longitude.toStringAsFixed(5)} • ${t.radius.round()} m'),
-            leading: IconButton(
-              icon: const Icon(Icons.play_arrow),
-              onPressed: () => player.play(DeviceFileSource(t.path)),
+              itemCount: triggers.length,
+              onReorder: (oldIndex, newIndex) {
+                if (newIndex > oldIndex) newIndex--;
+                ref.read(voiceTriggersProvider.notifier)
+                    .reorder(oldIndex, newIndex);
+                ref.read(routeProgressProvider.notifier).select(0);
+              },
+              itemBuilder: (_, index) {
+                final trigger = triggers[index];
+                return ListTile(
+                  key: ValueKey(trigger.path),
+                  selected: index == progress.nextIndex,
+                  onTap: () => ref
+                      .read(routeProgressProvider.notifier)
+                      .select(index),
+                  title: Text('${index + 1}. ${trigger.name}'),
+                  subtitle: Text(
+                    '${trigger.point.latitude.toStringAsFixed(5)}, '
+                    '${trigger.point.longitude.toStringAsFixed(5)} • '
+                    '${trigger.radius.round()} m',
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.play_arrow),
+                    onPressed: () =>
+                        player.play(DeviceFileSource(trigger.path)),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () => _delete(index),
+                  ),
+                );
+              },
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _delete(i),
-            ),
-          );
-        },
-      ),
     );
   }
 }
