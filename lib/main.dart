@@ -272,6 +272,56 @@ class _AddPageState extends State<AddPage> {
     super.dispose();
   }
 
+  Future<void> _useCurrentLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable device location services.')),
+          );
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission is required to fetch your position.')),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final current = LatLng(position.latitude, position.longitude);
+      if (!mounted) return;
+      setState(() {
+        center = current;
+        point = current;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Location fetched (±${position.accuracy.toStringAsFixed(0)} m)'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not fetch location: $error')),
+      );
+    }
+  }
+
   Future<void> _locate() async {
     try {
       final p = await Geolocator.getCurrentPosition();
@@ -376,6 +426,33 @@ class _AddPageState extends State<AddPage> {
               ),
             ),
           ]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _useCurrentLocation,
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Fetch current location'),
+                ),
+                const SizedBox(height: 6),
+                if (point == null)
+                  const Text(
+                    'No location selected. Fetch your location or tap a point on the map.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  )
+                else
+                  Text(
+                    'Latitude: ${point!.latitude.toStringAsFixed(6)}    '
+                    'Longitude: ${point!.longitude.toStringAsFixed(6)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: center == null
                 ? const Center(child: CircularProgressIndicator())
