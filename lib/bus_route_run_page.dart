@@ -126,6 +126,46 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     }
   }
 
+  void _showLocationNotification({
+    required String title,
+    required String message,
+    required IconData icon,
+  }) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFF8FFF9),
+        elevation: 8,
+        duration: const Duration(seconds: 5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFF8FC6A1)),
+        ),
+        content: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF328B55), size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(
+                    color: Color(0xFF17452D), fontWeight: FontWeight.w700,
+                  )),
+                  Text(message, style: const TextStyle(color: Color(0xFF52745E))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handlePosition(Position position) async {
     final stop = _currentStop;
     if (!_running || stop == null || _processing) return;
@@ -141,13 +181,27 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     try {
       if (distance <= _approachRadiusMeters && !_approachAnnounced) {
         _approachAnnounced = true;
-        if (mounted) setState(() => _status = 'Approaching ${stop.name}');
+        if (mounted) {
+          setState(() => _status = 'Approaching ${stop.name}');
+          _showLocationNotification(
+            title: 'Approaching ${stop.name}',
+            message: 'Bus is about ${distance.round()} m from this stop.',
+            icon: Icons.near_me,
+          );
+        }
         await _playRepeated(stop.arrivingAudio, stop.arrivingRepeatCount);
       }
       if (!_running) return;
       if (distance <= _arrivalRadiusMeters && !_arrivalAnnounced) {
         _arrivalAnnounced = true;
-        if (mounted) setState(() => _status = 'Arrived at ${stop.name}');
+        if (mounted) {
+          setState(() => _status = 'Arrived at ${stop.name}');
+          _showLocationNotification(
+            title: 'Arrived at ${stop.name}',
+            message: 'The bus has reached this stop.',
+            icon: Icons.location_on,
+          );
+        }
         await _playRepeated(stop.arrivedAudio, stop.arrivedRepeatCount);
         if (!_running) return;
         if (mounted) {
