@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'bus_route_run_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -16,12 +17,16 @@ class BusStop {
     required this.point,
     this.arrivingAudio,
     this.arrivedAudio,
+    this.arrivingRepeatCount = 1,
+    this.arrivedRepeatCount = 1,
   });
 
   String name;
   LatLng point;
   String? arrivingAudio;
   String? arrivedAudio;
+  int arrivingRepeatCount;
+  int arrivedRepeatCount;
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -29,6 +34,8 @@ class BusStop {
         'lng': point.longitude,
         'arrivingAudio': arrivingAudio,
         'arrivedAudio': arrivedAudio,
+        'arrivingRepeatCount': arrivingRepeatCount,
+        'arrivedRepeatCount': arrivedRepeatCount,
       };
 
   factory BusStop.fromJson(Map<String, dynamic> json) => BusStop(
@@ -39,6 +46,8 @@ class BusStop {
         ),
         arrivingAudio: json['arrivingAudio'] as String?,
         arrivedAudio: json['arrivedAudio'] as String?,
+        arrivingRepeatCount: (json['arrivingRepeatCount'] as num?)?.toInt() ?? 1,
+        arrivedRepeatCount: (json['arrivedRepeatCount'] as num?)?.toInt() ?? 1,
       );
 }
 
@@ -286,6 +295,8 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                 point: stop.point,
                 arrivingAudio: stop.arrivingAudio,
                 arrivedAudio: stop.arrivedAudio,
+                arrivingRepeatCount: stop.arrivingRepeatCount,
+                arrivedRepeatCount: stop.arrivedRepeatCount,
               ))
           .toList(),
     );
@@ -335,6 +346,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     final path = arriving ? stop.arrivingAudio : stop.arrivedAudio;
     final key = '$index-${arriving ? 'arriving' : 'arrived'}';
     final active = _recordingKey == key;
+    final repeatCount = arriving ? stop.arrivingRepeatCount : stop.arrivedRepeatCount;
     return Row(
       children: [
         Expanded(
@@ -342,6 +354,24 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
             arriving ? 'Arriving voice' : 'Arrived voice',
             style: const TextStyle(fontSize: 13),
           ),
+        ),
+        DropdownButton<int>(
+          value: repeatCount.clamp(1, 10),
+          underline: const SizedBox.shrink(),
+          isDense: true,
+          items: List.generate(10, (i) => i + 1)
+              .map((count) => DropdownMenuItem(value: count, child: Text('×$count')))
+              .toList(),
+          onChanged: (count) {
+            if (count == null) return;
+            setState(() {
+              if (arriving) {
+                stop.arrivingRepeatCount = count;
+              } else {
+                stop.arrivedRepeatCount = count;
+              }
+            });
+          },
         ),
         if (path != null && !active)
           IconButton(
@@ -527,10 +557,25 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
                   '${_savedRoutes[i].stops.where((s) => s.arrivingAudio != null).length} arriving clips · '
                   '${_savedRoutes[i].stops.where((s) => s.arrivedAudio != null).length} arrived clips',
                 ),
-                trailing: IconButton(
-                  tooltip: 'Delete route',
-                  onPressed: () => _deleteRoute(i),
-                  icon: const Icon(Icons.delete_outline),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Start GPS announcements',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BusRouteRunPage(route: _savedRoutes[i]),
+                        ),
+                      ),
+                      icon: const Icon(Icons.play_circle_outline),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete route',
+                      onPressed: () => _deleteRoute(i),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
                 ),
               ),
             ),
