@@ -29,6 +29,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   bool _approachAnnounced = false;
   bool _arrivalAnnounced = false;
   bool _finished = false;
+  bool _pausedWithAudio = false;
   String _status = 'Ready to start';
 
   BusStop? get _currentStop =>
@@ -68,6 +69,10 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
         locationSettings: settings,
       );
       if (!mounted) return;
+      if (_pausedWithAudio) {
+        await _player.resume();
+        _pausedWithAudio = false;
+      }
       setState(() {
         _running = true;
         _status = 'GPS tracking active';
@@ -97,7 +102,8 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   Future<void> _pauseTracking() async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
-    await _player.stop();
+    await _player.pause();
+    _pausedWithAudio = true;
     if (mounted) {
       setState(() {
         _running = false;
