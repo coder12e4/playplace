@@ -220,14 +220,14 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             ),
             const SizedBox(height: 20),
             if (stop == null)
-              const GlassGlassCard(
+              const GlassCard(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Text('All registered stops have been completed.'),
                 ),
               )
             else
-              Card(
+              GlassCard(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
