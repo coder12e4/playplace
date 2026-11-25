@@ -672,7 +672,24 @@ class _AddPageState extends State<AddPage> {
                   DropdownMenuItem(value: 'hi-IN', child: Text('Hindi')),
                   DropdownMenuItem(value: 'ta-IN', child: Text('Tamil')),
                 ],
-                onChanged: (value) { if (value != null) setState(() => languageCode = value); },
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    languageCode = value;
+
+                    // Switch the built-in announcement templates with the
+                    // selected language. Users can still edit either message.
+                    if (value == 'ml-IN') {
+                      approachCtl.text =
+                          '{name} എന്ന സ്ഥലത്തിന് സമീപം എത്തിയിരിക്കുന്നു.';
+                      arrivalCtl.text =
+                          'നിങ്ങൾ {name} എന്ന സ്ഥലത്ത് എത്തിയിരിക്കുന്നു.';
+                    } else {
+                      approachCtl.text = 'You are approaching {name}.';
+                      arrivalCtl.text = 'You have arrived at {name}.';
+                    }
+                  });
+                },
               ),
               TextField(
                 controller: approachCtl,
