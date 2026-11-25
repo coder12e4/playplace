@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'bus_route_run_page.dart';
+import 'driver_calendar_page.dart';
 import 'package:flutter/material.dart';
 import 'glass_card.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -405,7 +406,19 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       if (_destination != null) _destination!,
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Bus route registration')),
+      appBar: AppBar(
+        title: const Text('Bus route registration'),
+        actions: [
+          IconButton(
+            tooltip: 'Driver calendar and performance',
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DriverCalendarPage()),
+            ),
+          ),
+        ],
+      ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
