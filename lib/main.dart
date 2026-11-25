@@ -728,8 +728,9 @@ class _AddPageState extends State<AddPage> {
         ),
         child: Column(
         children: [
-          Expanded(
+          Flexible(
             flex: 0,
+            fit: FlexFit.loose,
             child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: ClipRRect(
