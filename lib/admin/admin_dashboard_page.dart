@@ -93,7 +93,7 @@ class _InviteDialogState extends State<_InviteDialog>{
 class _PendingDrivers extends StatelessWidget{
  const _PendingDrivers();
  @override Widget build(BuildContext context){
-  final requests=FirebaseFirestore.instance.collection('driverProfiles').where('status',isEqualTo:'pending').orderBy('createdAt',descending:true);
+  final requests=FirebaseFirestore.instance.collection('driverProfiles').where('status',isEqualTo:'pending');
   return StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:requests.snapshots(),builder:(context,snapshot){
    if(snapshot.hasError)return Text('Could not load driver requests: ${snapshot.error}');
    if(!snapshot.hasData)return const LinearProgressIndicator();

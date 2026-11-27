@@ -285,11 +285,13 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   }
 
   Future<void> _playRepeated(String? path, int count) async {
-    if (path == null || !File(path).existsSync()) return;
+    if (path == null) return;
+    final isRemote = path.startsWith('https://');
+    if (!isRemote && !File(path).existsSync()) return;
     for (var i = 0; i < count.clamp(1, 10); i++) {
       if (!_running) return;
       final completed = _player.onPlayerComplete.first;
-      await _player.play(DeviceFileSource(path));
+      await _player.play(isRemote ? UrlSource(path) : DeviceFileSource(path));
       try {
         await completed.timeout(const Duration(minutes: 3));
       } on TimeoutException {

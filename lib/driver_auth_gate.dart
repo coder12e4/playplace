@@ -41,21 +41,30 @@ class _DriverSignInPageState extends State<DriverSignInPage> {
     }
     setState(() { busy = true; error = null; });
     try {
-      final buses = await FirebaseFirestore.instance.collection('buses').where('busNumber', isEqualTo: busNumber).where('active', isEqualTo: true).limit(1).get();
-      if (buses.docs.isEmpty) throw Exception('Active Bus ID not found. Check with your admin.');
-      final busDoc = buses.docs.first;
       if (register) {
         final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: mail, password: pass);
-        await FirebaseFirestore.instance.collection('driverProfiles').doc(credential.user!.uid).set({
-          'name': name.text.trim(), 'email': mail, 'busNumber': busNumber, 'busId': busDoc.id,
-          'status': 'pending', 'createdAt': FieldValue.serverTimestamp(),
-        });
+        try {
+          final buses = await FirebaseFirestore.instance.collection('buses')
+            .where('busNumber', isEqualTo: busNumber).where('active', isEqualTo: true).limit(1).get();
+          if (buses.docs.isEmpty) throw Exception('Active Bus ID not found. Check with your admin.');
+          final busDoc = buses.docs.first;
+          await FirebaseFirestore.instance.collection('driverProfiles').doc(credential.user!.uid).set({
+            'name': name.text.trim(), 'email': mail, 'busNumber': busNumber, 'busId': busDoc.id,
+            'status': 'pending', 'createdAt': FieldValue.serverTimestamp(),
+          });
+        } catch (error) {
+          await FirebaseAuth.instance.signOut();
+          rethrow;
+        }
       } else {
         final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(email: mail, password: pass);
+        final buses = await FirebaseFirestore.instance.collection('buses')
+          .where('busNumber', isEqualTo: busNumber).where('active', isEqualTo: true).limit(1).get();
         final profile = await FirebaseFirestore.instance.collection('driverProfiles').doc(credential.user!.uid).get();
-        if (profile.data()?['busNumber'] != busNumber) {
+        final data = profile.data();
+        if (buses.docs.isEmpty || data == null || data['busNumber'] != busNumber || data['busId'] != buses.docs.first.id) {
           await FirebaseAuth.instance.signOut();
-          throw Exception('This driver account is not assigned to that Bus ID.');
+          throw Exception('This driver account is not assigned to that active Bus ID.');
         }
       }
     } on FirebaseAuthException catch (e) { setState(() => error = e.message ?? 'Authentication failed.'); }
