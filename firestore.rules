@@ -2,10 +2,16 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn(){return request.auth != null;}
-  function isSuperAdmin(){return signedIn() && request.auth.token.email == 'zeohm_pply@777.com';}
+  function isSuperAdmin(){return signedIn() && exists(/databases/$(database)/documents/appConfig/superAdmin) && get(/databases/$(database)/documents/appConfig/superAdmin).data.uid == request.auth.uid;}
   function isAdmin(){return isSuperAdmin() || (signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true);}
   function hasDriverProfile(){return signedIn() && exists(/databases/$(database)/documents/driverProfiles/$(request.auth.uid));}
   function approvedDriverFor(busId){return hasDriverProfile() && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.status == 'approved' && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.busId == busId;}
+  match /appConfig/{configId} {
+   allow get: if signedIn() && configId == 'superAdmin';
+   allow list: if false;
+   allow create: if signedIn() && configId == 'superAdmin' && !exists(/databases/$(database)/documents/appConfig/superAdmin) && request.resource.data.keys().hasOnly(['uid','email','createdAt']) && request.resource.data.uid == request.auth.uid && request.resource.data.email == request.auth.token.email;
+   allow update,delete: if false;
+  }
   match /admins/{uid} {
    allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
    allow list: if isSuperAdmin();

@@ -3,12 +3,13 @@
 ## Firebase setup
 
 1. Enable Email/Password in Firebase Authentication and create a Firestore database.
-2. Publish the repository's `firestore.rules`.
-3. Create a Firebase Authentication Email/Password user with email `zeohm_pply@777.com` and the password you choose. This is the fixed Super Admin login email used by the web portal.
-4. Open the web admin portal and sign in with that email and password. The app routes that email to the Super Admin dashboard.
-5. Existing Super Admin can invite other administrators. Invitees register with the exact invited email; invitations expire after seven days.
+2. Publish the repository's `firestore.rules` before running the first-account setup.
+3. Open the web admin portal. If no Super Admin has been registered, choose **First time here? Set up Super Admin**.
+4. Register the one Super Admin using their real email address and a Firebase Authentication password.
+5. The first successful claim is stored in `appConfig/superAdmin`. The document is immutable to client users, and later users cannot claim or replace it.
+6. The Super Admin can invite other administrators. Invitees register with the exact invited email; invitations expire after seven days.
 
-The Super Admin email is a prototype identity check used by the client and Firestore rules. The password is managed by Firebase Authentication and is not stored in this repository.
+**Important:** The first-claim flow is a one-time bootstrap. The first person to complete it becomes the only Super Admin. For production deployment, restrict initial access to the setup page (for example, deploy it privately or provision the initial claim through a trusted operator) before making the portal public.
 
 ## Super Admin dashboard
 
