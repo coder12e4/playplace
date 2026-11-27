@@ -1,38 +1,28 @@
-# PlayPlace web admin setup
+# PlayPlace web admin and driver setup
 
-The Flutter web app opens the admin sign-in page at the root URL (/). Android and iOS continue to open the existing driver app.
+## Firebase setup
 
-## 1. Firebase Console
+1. Enable Email/Password in Firebase Authentication.
+2. Create a Firestore database.
+3. Publish `firestore.rules` and `storage.rules` from this repository.
+4. Enable Firebase Storage and configure Storage rules to access Firestore for driver membership checks.
+5. Create the first administrator in Firebase Authentication. Copy the UID and manually create `admins/{uid}` in Firestore with `email` and `active: true`.
+6. Admins can invite more administrators from the dashboard. The invitee registers with the exact invited email. Invitations expire after seven days; the admin must share the admin page URL manually.
 
-1. Open the Firebase project configured in lib/firebase_options.dart.
-2. In Authentication → Sign-in method, enable Email/Password.
-3. Create a Cloud Firestore database.
-4. Publish the repository's firestore.rules rules.
+## Bus registration
 
-## 2. Bootstrap the first administrator
+Admins register buses in the dashboard. Drivers must enter the exact bus number shown in the registry as their Bus ID.
 
-Admin access is intentionally not open self-registration.
+## Driver registration and approval
 
-1. In Firebase Authentication → Users, add the first administrator with an email and a temporary password.
-2. Copy that user's Firebase Authentication UID.
-3. In Firestore, create a document in the admins collection whose document ID is exactly that UID.
-4. Add these fields:
-   - email (string): the same email address
-   - active (boolean): true
-5. Sign in at the web app's root URL with that account.
+Drivers register with their name, Bus ID, unique email, and password. Firebase Authentication creates a separate identity for each driver. A matching `driverProfiles/{uid}` document is created with `status: pending`. An admin approves or rejects the request in the Driver approval requests section. Only approved drivers can enter the app.
 
-## 3. Invite more administrators
+## Shared bus routes and announcements
 
-From the admin dashboard, choose Invite admin and enter the invitee's email. The invitation remains valid for seven days. Share the web admin URL with that person; they choose "Have an invitation? Create account" and register using the exact invited email address.
+Approved drivers assigned to the same bus read and write the same `buses/{busId}/routes` collection. Route metadata, stops, repeat counts, and recorded announcement audio are shared. Audio files are uploaded to Firebase Storage under `busRoutes/{busId}/{routeId}/...`. Other approved drivers on that bus can play the recordings.
 
-The current implementation stores the invitation in Firestore but does not send email automatically. The inviting admin must share the admin URL separately.
+Deleting a shared route removes it for every driver on that bus. Existing routes saved only in SharedPreferences remain local to their original device; recreate them in the shared route list. Locally recorded audio must be uploaded again.
 
-## 4. Bus registry
+## Private performance data
 
-Use Register bus to add a bus number and registration number. Route, driver, phone, and active status are optional. Records are stored in the Firestore buses collection.
-
-## Security notes
-
-- Firestore rules restrict bus data and invitation creation to active admins.
-- Additional admin accounts can only be created by accepting a pending, unexpired invitation matching the authenticated email.
-- Keep the first admin's Firebase credentials secure. Disable an administrator by setting admins/{uid}.active to false in Firestore.
+Store each driver's performance under `driverPerformance/{uid}/records/{recordId}`. Firestore rules allow the driver and administrators to read it; other drivers cannot read it.

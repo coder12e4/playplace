@@ -48,6 +48,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bus_routes_page.dart';
 import 'driver_calendar_page.dart';
 import 'admin/admin_gate.dart';
+import 'driver_auth_gate.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -134,7 +135,7 @@ class PlayPlaceApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: kIsWeb ? const AdminGate() : const SplashScreen(),
+      home: kIsWeb ? const AdminGate() : const DriverAuthGate(),
     );
   }
 }

@@ -18,6 +18,7 @@ class AdminDashboardPage extends StatelessWidget{
       final docs=snap.data!.docs;final active=docs.where((d)=>d.data()['active']==true).length;
       return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
        Wrap(spacing:12,runSpacing:12,children:[_Metric(label:'Registered buses',value:docs.length.toString(),icon:Icons.directions_bus_outlined),_Metric(label:'Active buses',value:active.toString(),icon:Icons.check_circle_outline)]),
+       const SizedBox(height:12),const _PendingDrivers(),
        const SizedBox(height:18),Row(children:[const Expanded(child:Text('Bus registry',style:TextStyle(fontSize:19,fontWeight:FontWeight.w700))),FilledButton.icon(onPressed:()=>showDialog(context:context,builder:(_)=>const _BusDialog()),icon:const Icon(Icons.add),label:const Text('Register bus'))]),
        const SizedBox(height:10),Expanded(child:docs.isEmpty?const Center(child:Text('No buses registered yet. Add your first bus.')):ListView.separated(
         itemCount:docs.length,separatorBuilder:(_,__)=>const SizedBox(height:8),itemBuilder:(context,i){
@@ -88,4 +89,26 @@ class _InviteDialogState extends State<_InviteDialog>{
   TextField(controller:email,keyboardType:TextInputType.emailAddress,decoration:const InputDecoration(labelText:'Email address')),
   if(error!=null)Text(error!,style:const TextStyle(color:Colors.red))])),
   actions:[TextButton(onPressed:saving?null:()=>Navigator.pop(context),child:const Text('Cancel')),FilledButton(onPressed:saving?null:invite,child:Text(saving?'Creating…':'Create invitation'))]);
+}
+class _PendingDrivers extends StatelessWidget{
+ const _PendingDrivers();
+ @override Widget build(BuildContext context){
+  final requests=FirebaseFirestore.instance.collection('driverProfiles').where('status',isEqualTo:'pending').orderBy('createdAt',descending:true);
+  return StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:requests.snapshots(),builder:(context,snapshot){
+   if(snapshot.hasError)return Text('Could not load driver requests: ${snapshot.error}');
+   if(!snapshot.hasData)return const LinearProgressIndicator();
+   final docs=snapshot.data!.docs;
+   return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withValues(alpha:.72),borderRadius:BorderRadius.circular(18)),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+     Text('Driver approval requests (${docs.length})',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:17)),
+     if(docs.isEmpty)const Padding(padding:EdgeInsets.only(top:8),child:Text('No pending driver requests.')),
+     for(final doc in docs)ListTile(contentPadding:EdgeInsets.zero,leading:const CircleAvatar(child:Icon(Icons.person_outline)),
+      title:Text((doc.data()['name']??'Driver').toString()),subtitle:Text('${doc.data()['email']??''} · Bus ${doc.data()['busNumber']??''}'),
+      trailing:Wrap(mainAxisSize:MainAxisSize.min,children:[
+       IconButton(tooltip:'Reject',onPressed:()=>doc.reference.update({'status':'rejected','reviewedAt':FieldValue.serverTimestamp()}),icon:const Icon(Icons.close,color:Colors.redAccent)),
+       IconButton(tooltip:'Approve',onPressed:()=>doc.reference.update({'status':'approved','approvedAt':FieldValue.serverTimestamp(),'approvedBy':FirebaseAuth.instance.currentUser!.uid}),icon:const Icon(Icons.check_circle,color:Color(0xFF328B55))),
+      ]))
+    ]));
+  });
+ }
 }

@@ -3,10 +3,11 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn(){return request.auth != null;}
   function isAdmin(){return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;}
+  function hasDriverProfile(){return signedIn() && exists(/databases/$(database)/documents/driverProfiles/$(request.auth.uid));}
+  function approvedDriverFor(busId){return hasDriverProfile() && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.status == 'approved' && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.busId == busId;}
   match /admins/{uid} {
    allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
    allow list: if isAdmin();
-   // Create the first admins/{uid} document manually in Firebase Console.
    allow create: if signedIn() && request.auth.uid == uid && request.resource.data.email == request.auth.token.email
     && request.resource.data.active == true && request.resource.data.source == 'invitation'
     && exists(/databases/$(database)/documents/adminInvites/$(request.auth.token.email))
@@ -24,6 +25,24 @@ service cloud.firestore {
     && request.time < resource.data.expiresAt
     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','uid','acceptedAt']));
   }
-  match /buses/{busId} {allow read,write:if isAdmin();}
+  match /driverProfiles/{uid} {
+   allow create: if signedIn() && request.auth.uid == uid && request.resource.data.email == request.auth.token.email
+    && request.resource.data.status == 'pending'
+    && exists(/databases/$(database)/documents/buses/$(request.resource.data.busId))
+    && get(/databases/$(database)/documents/buses/$(request.resource.data.busId)).data.active == true
+    && get(/databases/$(database)/documents/buses/$(request.resource.data.busId)).data.busNumber == request.resource.data.busNumber;
+   allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+   allow list: if isAdmin();
+   allow update,delete: if isAdmin();
+  }
+  match /buses/{busId} {
+   allow get: if isAdmin() || approvedDriverFor(busId);
+   allow list: if signedIn();
+   allow create,update,delete: if isAdmin();
+   match /routes/{routeId} { allow read,create,update,delete: if approvedDriverFor(busId) || isAdmin(); }
+  }
+  match /driverPerformance/{uid}/records/{recordId} {
+   allow read,create,update,delete: if signedIn() && (request.auth.uid == uid || isAdmin());
+  }
  }
 }

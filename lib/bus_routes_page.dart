@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'bus_route_run_page.dart';
 import 'driver_calendar_page.dart';
 import 'package:flutter/material.dart';
@@ -105,6 +108,9 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
   final _player = AudioPlayer();
   final List<BusStop> _stops = [];
   final List<BusRoute> _savedRoutes = [];
+  final List<String> _savedRouteIds = [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _routesSubscription;
+  String? _busId;
   LatLng? _start;
   LatLng? _destination;
   LatLng _mapCenter = const LatLng(10.0, 76.3);
@@ -124,29 +130,39 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     _routeName.dispose();
     _recorder.dispose();
     _player.dispose();
+    _routesSubscription?.cancel();
     super.dispose();
   }
 
   Future<void> _loadRoutes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final values = prefs.getStringList('playplace_bus_routes') ?? [];
-    final routes = <BusRoute>[];
-    for (final value in values) {
-      try {
-        routes.add(BusRoute.fromJson(jsonDecode(value) as Map<String, dynamic>));
-      } catch (_) {
-        // Ignore an invalid old entry without losing other saved routes.
-      }
-    }
-    if (mounted) setState(() => _savedRoutes.addAll(routes));
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final profile = await FirebaseFirestore.instance.collection('driverProfiles').doc(uid).get();
+    final data = profile.data();
+    if (data == null || data['status'] != 'approved' || data['busId'] == null) return;
+    final busId = data['busId'] as String;
+    if (mounted) setState(() => _busId = busId);
+    _routesSubscription = FirebaseFirestore.instance.collection('buses').doc(busId)
+      .collection('routes').orderBy('updatedAt', descending: true).snapshots().listen((snapshot) {
+        final routes = <BusRoute>[], ids = <String>[];
+        for (final doc in snapshot.docs) {
+          try { routes.add(BusRoute.fromJson(doc.data())); ids.add(doc.id); }
+          catch (error) { debugPrint('Skipping invalid shared route ${doc.id}: $error'); }
+        }
+        if (mounted) setState(() { _savedRoutes..clear()..addAll(routes); _savedRouteIds..clear()..addAll(ids); });
+      }, onError: (Object error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not sync shared bus routes: $error')));
+      });
   }
 
-  Future<void> _persistRoutes() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      'playplace_bus_routes',
-      _savedRoutes.map((route) => jsonEncode(route.toJson())).toList(),
-    );
+  Future<String?> _uploadAudio(String? localPath, String routeId, String fileName) async {
+    if (localPath == null) return null;
+    if (localPath.startsWith('https://')) return localPath;
+    final busId = _busId;
+    if (busId == null) throw StateError('Your approved bus assignment is unavailable.');
+    final ref = FirebaseStorage.instance.ref('busRoutes/$busId/$routeId/$fileName');
+    await ref.putFile(File(localPath));
+    return ref.getDownloadURL();
   }
 
   Future<void> _centerOnCurrentLocation() async {
@@ -252,8 +268,9 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
   }
 
   Future<void> _preview(String? path) async {
-    if (path == null || !File(path).existsSync()) return;
-    await _player.play(DeviceFileSource(path));
+    if (path == null) return;
+    if (path.startsWith('https://')) { await _player.play(UrlSource(path)); }
+    else if (File(path).existsSync()) { await _player.play(DeviceFileSource(path)); }
   }
 
   Future<void> _saveRoute() async {
@@ -286,52 +303,41 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
       );
       return;
     }
+    final busId = _busId;
+    if (busId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your approved bus account is not ready. Sign in again.')));
+      return;
+    }
     setState(() => _saving = true);
-    final route = BusRoute(
-      name: name,
-      start: _start!,
-      destination: _destination!,
-      stops: _stops
-          .map((stop) => BusStop(
-                name: stop.name,
-                point: stop.point,
-                arrivingAudio: stop.arrivingAudio,
-                arrivedAudio: stop.arrivedAudio,
-                arrivingRepeatCount: stop.arrivingRepeatCount,
-                arrivedRepeatCount: stop.arrivedRepeatCount,
-              ))
-          .toList(),
-    );
-    setState(() => _savedRoutes.insert(0, route));
-    await _persistRoutes();
-    if (mounted) {
-      setState(() {
-        _routeName.clear();
-        _start = null;
-        _destination = null;
-        _stops.clear();
-        _pick = _MapPick.start;
-        _saving = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bus route saved on this device.')),
-      );
+    try {
+      final routeRef = FirebaseFirestore.instance.collection('buses').doc(busId).collection('routes').doc();
+      final uploadedStops = <BusStop>[];
+      for (var i = 0; i < _stops.length; i++) {
+        final stop = _stops[i];
+        uploadedStops.add(BusStop(name: stop.name, point: stop.point,
+          arrivingAudio: await _uploadAudio(stop.arrivingAudio, routeRef.id, 'stop_${i}_arriving.m4a'),
+          arrivedAudio: await _uploadAudio(stop.arrivedAudio, routeRef.id, 'stop_${i}_arrived.m4a'),
+          arrivingRepeatCount: stop.arrivingRepeatCount, arrivedRepeatCount: stop.arrivedRepeatCount));
+      }
+      final route = BusRoute(name: name, start: _start!, destination: _destination!, stops: uploadedStops);
+      await routeRef.set({...route.toJson(), 'createdBy': FirebaseAuth.instance.currentUser!.uid,
+        'createdAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp()});
+      if (mounted) setState(() { _routeName.clear(); _start = null; _destination = null; _stops.clear(); _pick = _MapPick.start; _saving = false; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Route shared with all approved drivers on this bus.')));
+    } catch (error) {
+      if (mounted) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not share route: $error'))); }
     }
   }
 
   Future<void> _deleteRoute(int index) async {
-    final route = _savedRoutes.removeAt(index);
-    for (final stop in route.stops) {
-      for (final path in [stop.arrivingAudio, stop.arrivedAudio]) {
-        if (path != null) {
-          try {
-            await File(path).delete();
-          } catch (_) {}
-        }
-      }
+    final busId = _busId;
+    if (busId == null || index >= _savedRouteIds.length) return;
+    try {
+      await FirebaseFirestore.instance.collection('buses').doc(busId).collection('routes').doc(_savedRouteIds[index]).delete();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Shared route deleted for this bus.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not delete route: $error')));
     }
-    setState(() {});
-    await _persistRoutes();
   }
 
   Widget _pickButton(String label, _MapPick value, IconData icon) {
@@ -407,7 +413,7 @@ class _BusRoutesPageState extends State<BusRoutesPage> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bus route registration'),
+        title: const Text('Shared bus routes'),
         actions: [
           IconButton(
             tooltip: 'Driver calendar and performance',
