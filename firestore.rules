@@ -7,7 +7,7 @@ service cloud.firestore {
   function hasDriverProfile(){return signedIn() && exists(/databases/$(database)/documents/driverProfiles/$(request.auth.uid));}
   function approvedDriverFor(busId){return hasDriverProfile() && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.status == 'approved' && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.busId == busId;}
   match /appConfig/{configId} {
-   allow get: if signedIn() && configId == 'superAdmin';
+   allow get: if configId == 'superAdmin';
    allow list: if false;
    allow create: if signedIn() && configId == 'superAdmin' && !exists(/databases/$(database)/documents/appConfig/superAdmin) && request.resource.data.keys().hasOnly(['uid','email','createdAt']) && request.resource.data.uid == request.auth.uid && request.resource.data.email == request.auth.token.email;
    allow update,delete: if false;

@@ -27,9 +27,9 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
    if(!mail.contains('@')||password.text.length<6)throw FirebaseAuthException(code:'invalid-input',message:'Enter a valid email and a password of at least 6 characters.');
    if(!signup){await FirebaseAuth.instance.signInWithEmailAndPassword(email:mail,password:password.text);}
    else{
+    final user=(await FirebaseAuth.instance.createUserWithEmailAndPassword(email:mail,password:password.text)).user!;
     final configRef=FirebaseFirestore.instance.collection('appConfig').doc('superAdmin');
     final config=await configRef.get();
-    final user=(await FirebaseAuth.instance.createUserWithEmailAndPassword(email:mail,password:password.text)).user!;
     if(!config.exists){
      try{
       await configRef.set({'uid':user.uid,'email':mail,'createdAt':FieldValue.serverTimestamp()});
