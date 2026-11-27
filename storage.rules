@@ -1,13 +1,7 @@
+// Storage is intentionally disabled. PlayPlace stores announcement recordings locally.
 rules_version = '2';
 service firebase.storage {
  match /b/{bucket}/o {
-  match /busRoutes/{busId}/{routeId}/{fileName} {
-   function approvedDriver() {
-    return request.auth != null
-      && firestore.get(/databases/(default)/documents/driverProfiles/$(request.auth.uid)).data.status == 'approved'
-      && firestore.get(/databases/(default)/documents/driverProfiles/$(request.auth.uid)).data.busId == busId;
-   }
-   allow read,write: if approvedDriver();
-  }
+  match /{allPaths=**} { allow read, write: if false; }
  }
 }

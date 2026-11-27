@@ -1,28 +1,31 @@
-# PlayPlace web admin and driver setup
+# PlayPlace admin, drivers, and route tracking setup
 
 ## Firebase setup
 
 1. Enable Email/Password in Firebase Authentication.
 2. Create a Firestore database.
-3. Publish `firestore.rules` and `storage.rules` from this repository.
-4. Enable Firebase Storage and configure Storage rules to access Firestore for driver membership checks.
-5. Create the first administrator in Firebase Authentication. Copy the UID and manually create `admins/{uid}` in Firestore with `email` and `active: true`.
-6. Admins can invite more administrators from the dashboard. The invitee registers with the exact invited email. Invitations expire after seven days; the admin must share the admin page URL manually.
+3. Publish `firestore.rules`.
+4. Create the first administrator in Firebase Authentication. Copy the UID and manually create `admins/{uid}` in Firestore with `email` and `active: true`.
+5. Existing admins can invite more administrators. Invitations expire after seven days; the admin must share the admin page URL manually.
 
-## Bus registration
+Firebase Storage is not used by this version of PlayPlace. Do not deploy or enable Storage rules for the app.
 
-Admins register buses in the dashboard. Drivers must enter the exact bus number shown in the registry as their Bus ID.
+## Driver accounts and buses
 
-## Driver registration and approval
+Admins register buses in the dashboard. Drivers register with the exact bus number, their name, unique email, and password. New accounts stay pending until an admin approves them. Each driver has a separate Firebase Authentication UID and private performance records.
 
-Drivers register with their name, Bus ID, unique email, and password. Firebase Authentication creates a separate identity for each driver. A matching `driverProfiles/{uid}` document is created with `status: pending`. An admin approves or rejects the request in the Driver approval requests section. Only approved drivers can enter the app.
+## Shared routes and announcement audio
 
-## Shared bus routes and announcements
+Route names, start/end points, stop coordinates, and repeat counts are stored in Firestore under `buses/{busId}/routes`. The app uses one-time Firestore reads and writes; it does not subscribe to Firestore snapshots.
 
-Approved drivers assigned to the same bus read and write the same `buses/{busId}/routes` collection. Route metadata, stops, repeat counts, and recorded announcement audio are shared. Audio files are uploaded to Firebase Storage under `busRoutes/{busId}/{routeId}/...`. Other approved drivers on that bus can play the recordings.
+Recorded announcement audio remains on the device that recorded it. It is deliberately not uploaded or shared. Each driver must record their own arriving/arrived audio on their device. If another driver loads the shared route, its route data and repeat counts are available but its audio recordings are not.
 
-Deleting a shared route removes it for every driver on that bus. Existing routes saved only in SharedPreferences remain local to their original device; recreate them in the shared route list. Locally recorded audio must be uploaded again.
+## Background route tracking and admin dashboard
+
+When the driver starts a route, Android location tracking runs with a persistent foreground-service notification. GPS continues while the app is in the background, subject to Android location permissions and battery restrictions. At each detected stop arrival, the app writes a small event to `buses/{busId}/locationEvents` and updates `buses/{busId}/locationStatus/latest`. These are ordinary Firestore writes; the Firestore SDK queues writes when offline and syncs them after connectivity returns.
+
+The admin dashboard polls for the latest bus arrival status every 15 seconds. It does not use Firestore real-time streams. The driver must start route tracking while the app is visible; force-stopping the app or disabling location can stop tracking.
 
 ## Private performance data
 
-Store each driver's performance under `driverPerformance/{uid}/records/{recordId}`. Firestore rules allow the driver and administrators to read it; other drivers cannot read it.
+Driver performance is stored under `driverPerformance/{uid}/records/{recordId}`. Drivers can read their own records; administrators can read records for support and reporting.

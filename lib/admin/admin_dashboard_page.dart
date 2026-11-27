@@ -1,24 +1,37 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-class AdminDashboardPage extends StatelessWidget{
+import 'admin_gate.dart';
+class AdminDashboardPage extends StatefulWidget{
  const AdminDashboardPage({super.key});
+ @override State<AdminDashboardPage> createState()=>_AdminDashboardPageState();
+}
+class _AdminDashboardPageState extends State<AdminDashboardPage>{
+ late Future<QuerySnapshot<Map<String,dynamic>>> _busesFuture;
+ Timer? _refreshTimer;
+ int _refreshVersion=0;
+ Future<QuerySnapshot<Map<String,dynamic>>> _fetchBuses()=>FirebaseFirestore.instance.collection('buses').orderBy('createdAt',descending:true).get();
+ @override void initState(){super.initState();_busesFuture=_fetchBuses();_refreshTimer=Timer.periodic(const Duration(seconds:15),(_)=>_refresh());}
+ @override void dispose(){_refreshTimer?.cancel();super.dispose();}
+ void _refresh(){if(!mounted)return;setState(()=>{_busesFuture=_fetchBuses();_refreshVersion++;});}
  @override Widget build(BuildContext context){
-  final buses=FirebaseFirestore.instance.collection('buses').orderBy('createdAt',descending:true);
   return Scaffold(backgroundColor:const Color(0xFFEAF8EF),appBar:AppBar(title:const Text('PlayPlace Admin'),actions:[
    TextButton.icon(onPressed:()=>showDialog(context:context,builder:(_)=>const _InviteDialog()),icon:const Icon(Icons.person_add_alt_1),label:const Text('Invite admin')),
-   IconButton(onPressed:()=>FirebaseAuth.instance.signOut(),icon:const Icon(Icons.logout)),const SizedBox(width:8)]),
+   IconButton(tooltip:'Refresh dashboard',onPressed:_refresh,icon:const Icon(Icons.refresh)),
+   IconButton(onPressed:()async{await FirebaseAuth.instance.signOut();if(context.mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AdminGate()),(_)=>false);},icon:const Icon(Icons.logout)),const SizedBox(width:8)]),
    body:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFFF2FBF5),Color(0xFFE2F4E8),Color(0xFFD5EEDD)])),
     child:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:1100),child:Padding(padding:const EdgeInsets.all(22),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
      const Text('Fleet overview',style:TextStyle(fontSize:28,fontWeight:FontWeight.w800,color:Color(0xFF17452D))),
      const Text('Register and maintain the buses used by PlayPlace.',style:TextStyle(color:Color(0xFF64816D))),
-     const SizedBox(height:18),Expanded(child:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:buses.snapshots(),builder:(context,snap){
+     const SizedBox(height:18),Expanded(child:FutureBuilder<QuerySnapshot<Map<String,dynamic>>>(future:_busesFuture,builder:(context,snap){
       if(snap.hasError)return Center(child:Text('Could not load buses: '+snap.error.toString()));
       if(!snap.hasData)return const Center(child:CircularProgressIndicator());
       final docs=snap.data!.docs;final active=docs.where((d)=>d.data()['active']==true).length;
       return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
        Wrap(spacing:12,runSpacing:12,children:[_Metric(label:'Registered buses',value:docs.length.toString(),icon:Icons.directions_bus_outlined),_Metric(label:'Active buses',value:active.toString(),icon:Icons.check_circle_outline)]),
-       const SizedBox(height:12),const _PendingDrivers(),
+       const SizedBox(height:12),_PendingDrivers(key:ValueKey(_refreshVersion)),
+       const SizedBox(height:12),_RecentArrivals(key:ValueKey('arrivals-$_refreshVersion'),buses:docs),
        const SizedBox(height:18),Row(children:[const Expanded(child:Text('Bus registry',style:TextStyle(fontSize:19,fontWeight:FontWeight.w700))),FilledButton.icon(onPressed:()=>showDialog(context:context,builder:(_)=>const _BusDialog()),icon:const Icon(Icons.add),label:const Text('Register bus'))]),
        const SizedBox(height:10),Expanded(child:docs.isEmpty?const Center(child:Text('No buses registered yet. Add your first bus.')):ListView.separated(
         itemCount:docs.length,separatorBuilder:(_,__)=>const SizedBox(height:8),itemBuilder:(context,i){
@@ -91,10 +104,10 @@ class _InviteDialogState extends State<_InviteDialog>{
   actions:[TextButton(onPressed:saving?null:()=>Navigator.pop(context),child:const Text('Cancel')),FilledButton(onPressed:saving?null:invite,child:Text(saving?'Creating…':'Create invitation'))]);
 }
 class _PendingDrivers extends StatelessWidget{
- const _PendingDrivers();
+ const _PendingDrivers({super.key});
  @override Widget build(BuildContext context){
   final requests=FirebaseFirestore.instance.collection('driverProfiles').where('status',isEqualTo:'pending');
-  return StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:requests.snapshots(),builder:(context,snapshot){
+  return FutureBuilder<QuerySnapshot<Map<String,dynamic>>>(future:requests.get(),builder:(context,snapshot){
    if(snapshot.hasError)return Text('Could not load driver requests: ${snapshot.error}');
    if(!snapshot.hasData)return const LinearProgressIndicator();
    final docs=snapshot.data!.docs;
@@ -111,4 +124,40 @@ class _PendingDrivers extends StatelessWidget{
     ]));
   });
  }
+}
+
+class _RecentArrivals extends StatelessWidget {
+ const _RecentArrivals({super.key,required this.buses});
+ final List<QueryDocumentSnapshot<Map<String,dynamic>>> buses;
+ Future<List<Map<String,dynamic>>> _load() async {
+  final items=<Map<String,dynamic>>[];
+  for(final bus in buses){
+   final snap=await bus.reference.collection('locationStatus').doc('latest').get();
+   if(snap.exists){final data=snap.data()!;items.add({...data,'busNumber':bus.data()['busNumber']??'Bus'});}
+  }
+  items.sort((a,b){
+   final at=a['reachedAt'];final bt=b['reachedAt'];
+   final ad=at is Timestamp?at.toDate():DateTime.fromMillisecondsSinceEpoch(0);
+   final bd=bt is Timestamp?bt.toDate():DateTime.fromMillisecondsSinceEpoch(0);
+   return bd.compareTo(ad);
+  });
+  return items.take(8).toList();
+ }
+ @override Widget build(BuildContext context)=>FutureBuilder<List<Map<String,dynamic>>>(
+  future:_load(),builder:(context,snapshot){
+   if(snapshot.hasError)return Text('Could not load arrival updates: ${snapshot.error}');
+   if(!snapshot.hasData)return const LinearProgressIndicator();
+   final events=snapshot.data!;
+   return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withValues(alpha:.72),borderRadius:BorderRadius.circular(18)),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+     const Text('Recent stop arrivals',style:TextStyle(fontWeight:FontWeight.w700,fontSize:17)),
+     if(events.isEmpty)const Padding(padding:EdgeInsets.only(top:8),child:Text('No arrival reports yet.')),
+     for(final event in events)ListTile(dense:true,contentPadding:EdgeInsets.zero,
+      leading:const Icon(Icons.location_on_outlined,color:Color(0xFF328B55)),
+      title:Text('${event['busNumber']} · ${event['stopName']??'Stop'}'),
+      subtitle:Text('${event['driverName']??'Driver'} · ${event['routeName']??''}'),
+      trailing:Text(event['reachedAt'] is Timestamp?TimeOfDay.fromDateTime((event['reachedAt'] as Timestamp).toDate()).format(context):'Just now'),
+     )
+    ]));
+  });
 }

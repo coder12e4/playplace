@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'admin_gate.dart';
 class AdminLoginPage extends StatefulWidget{
  const AdminLoginPage({super.key});
  @override State<AdminLoginPage>createState()=>_AdminLoginPageState();
@@ -26,6 +27,7 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
     await inviteRef.update({'status':'accepted','uid':user.uid,'acceptedAt':FieldValue.serverTimestamp()});
     await FirebaseFirestore.instance.collection('admins').doc(user.uid).set({'email':mail,'active':true,'source':'invitation','createdAt':FieldValue.serverTimestamp()});
    }
+   if(mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AdminGate()),(_)=>false);
   }on FirebaseAuthException catch(e){if(mounted)setState(()=>error=e.message??e.code);}
    on FirebaseException catch(e){if(mounted)setState(()=>error=e.message??'A Firebase request failed.');}
    catch(e){if(mounted)setState(()=>error=e.toString());}

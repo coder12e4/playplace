@@ -5,22 +5,19 @@ import 'main.dart';
 
 class DriverAuthGate extends StatelessWidget {
   const DriverAuthGate({super.key});
-  @override
-  Widget build(BuildContext context) => StreamBuilder<User?>(
-    stream: FirebaseAuth.instance.authStateChanges(),
-    builder: (context, auth) {
-      if (auth.connectionState == ConnectionState.waiting) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      final user = auth.data;
-      if (user == null) return const DriverSignInPage();
-      return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('driverProfiles').doc(user.uid).snapshots(),
-        builder: (context, profile) {
-          if (profile.connectionState == ConnectionState.waiting) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          final data = profile.data?.data();
-          if (data == null || data['status'] != 'approved') return _ApprovalPendingPage(status: data?['status']?.toString() ?? 'pending');
-          return const Home();
-        });
-    });
+  @override Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const DriverSignInPage();
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      future: FirebaseFirestore.instance.collection('driverProfiles').doc(user.uid).get(),
+      builder: (context, profile) {
+        if (profile.connectionState == ConnectionState.waiting) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        final data = profile.data?.data();
+        if (data == null || data['status'] != 'approved') return _ApprovalPendingPage(status: data?['status']?.toString() ?? 'pending');
+        return const Home();
+      },
+    );
+  }
 }
 
 class DriverSignInPage extends StatefulWidget {
@@ -67,6 +64,7 @@ class _DriverSignInPageState extends State<DriverSignInPage> {
           throw Exception('This driver account is not assigned to that active Bus ID.');
         }
       }
+      if (mounted) Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const DriverAuthGate()), (_) => false);
     } on FirebaseAuthException catch (e) { setState(() => error = e.message ?? 'Authentication failed.'); }
     catch (e) { setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => busy = false); }
@@ -103,6 +101,6 @@ class _ApprovalPendingPage extends StatelessWidget {
     const Icon(Icons.hourglass_top_rounded, size: 56, color: Color(0xFF328B55)),
     const SizedBox(height: 14), Text(status == 'rejected' ? 'Registration not approved' : 'Waiting for admin approval', style: Theme.of(context).textTheme.titleLarge),
     const SizedBox(height: 8), const Text('Your account can access shared bus routes after an administrator approves your request.', textAlign: TextAlign.center),
-    const SizedBox(height: 18), OutlinedButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text('Sign out')),
+    const SizedBox(height: 18), OutlinedButton(onPressed: () async { await FirebaseAuth.instance.signOut(); if (context.mounted) Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const DriverAuthGate()), (_) => false); }, child: const Text('Sign out')),
   ]))));
 }

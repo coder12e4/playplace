@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'glass_card.dart';
 import 'driver_performance.dart';
 import 'package:geolocator/geolocator.dart';
@@ -23,6 +27,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   static const double _arrivalRadiusMeters = 60;
 
   final AudioPlayer _player = AudioPlayer();
+  final FlutterTts _tts = FlutterTts();
   StreamSubscription<Position>? _positionSubscription;
   int _stopIndex = 0;
   double? _distanceMeters;
@@ -40,6 +45,8 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   double _accuracyTotalMeters = 0;
   int _accuracySamples = 0;
   bool _recordSaved = false;
+  String? _busId;
+  String? _driverName;
 
   double get _averageAccuracy => _accuracySamples == 0 ? 0 : _accuracyTotalMeters / _accuracySamples;
   double get _averageSpeedKmh => _activeClock.elapsed.inSeconds == 0 ? 0 :
@@ -52,6 +59,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
   void dispose() {
     _positionSubscription?.cancel();
     _player.dispose();
+    _tts.stop();
     super.dispose();
   }
 
@@ -73,11 +81,20 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
       return;
     }
 
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 10,
-    );
+    final settings = defaultTargetPlatform == TargetPlatform.android
+        ? AndroidSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 10,
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'PlayPlace route tracking active',
+              notificationText: 'GPS continues while PlayPlace is in the background.',
+              enableWakeLock: true,
+              setOngoing: true,
+            ),
+          )
+        : const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 10);
     try {
+      await _loadDriverContext();
       final initial = await Geolocator.getCurrentPosition(
         locationSettings: settings,
       );
@@ -200,6 +217,33 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     _lastGoodPosition = position;
   }
 
+  Future<void> _loadDriverContext() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final profile = await FirebaseFirestore.instance.collection('driverProfiles').doc(uid).get();
+    _busId = profile.data()?['busId']?.toString();
+    _driverName = profile.data()?['name']?.toString();
+  }
+
+  Future<void> _reportStopReached(BusStop stop, Position position) async {
+    final busId = _busId;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (busId == null || uid == null) return;
+    final event = <String, dynamic>{
+      'eventType': 'stop_reached', 'busId': busId, 'driverId': uid,
+      'driverName': _driverName ?? FirebaseAuth.instance.currentUser?.email ?? 'Driver',
+      'routeName': widget.route.name, 'stopName': stop.name,
+      'latitude': position.latitude, 'longitude': position.longitude,
+      'accuracyMeters': position.accuracy, 'reachedAt': FieldValue.serverTimestamp(),
+    };
+    // This is a normal Firestore write; the SDK queues it while offline.
+    try {
+      await FirebaseFirestore.instance.collection('buses').doc(busId).collection('locationEvents').add(event);
+      await FirebaseFirestore.instance.collection('buses').doc(busId).collection('locationStatus').doc('latest').set(event);
+    } catch (error) {
+      debugPrint('Could not sync stop arrival yet: $error');
+    }
+  }
   Future<void> _savePerformanceRecord() async {
     if (_recordSaved || _startedAt == null) return;
     _recordSaved = true;
@@ -244,7 +288,7 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             icon: Icons.near_me,
           );
         }
-        await _playRepeated(stop.arrivingAudio, stop.arrivingRepeatCount);
+        await _playRepeated(stop.arrivingAudio, stop.arrivingRepeatCount, fallbackText: 'Approaching ${stop.name}');
       }
       if (!_running) return;
       if (distance <= _arrivalRadiusMeters && !_arrivalAnnounced) {
@@ -257,7 +301,8 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
             icon: Icons.location_on,
           );
         }
-        await _playRepeated(stop.arrivedAudio, stop.arrivedRepeatCount);
+        await _reportStopReached(stop, position);
+        await _playRepeated(stop.arrivedAudio, stop.arrivedRepeatCount, fallbackText: 'Arrived at ${stop.name}');
         if (!_running) return;
         if (mounted) {
           setState(() {
@@ -284,20 +329,19 @@ class _BusRouteRunPageState extends State<BusRouteRunPage> {
     }
   }
 
-  Future<void> _playRepeated(String? path, int count) async {
-    if (path == null) return;
-    final isRemote = path.startsWith('https://');
-    if (!isRemote && !File(path).existsSync()) return;
+  Future<void> _playRepeated(String? path, int count, {required String fallbackText}) async {
+    final hasLocalRecording = path != null && File(path).existsSync();
+    if (!hasLocalRecording) await _tts.awaitSpeakCompletion(true);
     for (var i = 0; i < count.clamp(1, 10); i++) {
       if (!_running) return;
-      final completed = _player.onPlayerComplete.first;
-      await _player.play(isRemote ? UrlSource(path) : DeviceFileSource(path));
-      try {
-        await completed.timeout(const Duration(minutes: 3));
-      } on TimeoutException {
-        await _player.stop();
-        return;
+      if (!hasLocalRecording) {
+        await _tts.speak(fallbackText);
+        continue;
       }
+      final completed = _player.onPlayerComplete.first;
+      await _player.play(DeviceFileSource(path!));
+      try { await completed.timeout(const Duration(minutes: 3)); }
+      on TimeoutException { await _player.stop(); return; }
     }
   }
 
