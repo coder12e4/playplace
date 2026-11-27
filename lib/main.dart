@@ -44,7 +44,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/get.dart';
+import 'features/announcements/models/voice_trigger.dart';
+import 'features/announcements/controllers/voice_triggers_controller.dart';
+import 'features/routes/controllers/route_progress_controller.dart';
+import 'app/bindings/app_binding.dart';
+import 'app/routes/app_routes.dart';
 import 'bus_routes_page.dart';
 import 'driver_calendar_page.dart';
 import 'admin/admin_gate.dart';
@@ -61,7 +66,7 @@ void main() async{
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: PlayPlaceApp()));
+  runApp(const PlayPlaceApp());
 }
 
 class PlayPlaceApp extends StatelessWidget {
@@ -69,7 +74,14 @@ class PlayPlaceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
+      initialBinding: AppBinding(),
+      initialRoute: kIsWeb ? AppRoutes.admin : AppRoutes.driver,
+      getPages: [
+        GetPage(name: AppRoutes.driver, page: () => const DriverAuthGate()),
+        GetPage(name: AppRoutes.admin, page: () => const AdminGate()),
+        GetPage(name: AppRoutes.home, page: () => const Home()),
+      ],
       title: 'PlayPlace',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -135,7 +147,7 @@ class PlayPlaceApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: kIsWeb ? const AdminGate() : const DriverAuthGate(),
+      
     );
   }
 }
@@ -216,129 +228,18 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // ---------- Model ----------
-class VoiceTrigger {
-  VoiceTrigger(this.name, this.path, this.point, this.radius,
-      {this.approachPath,
-      this.approachRadius = 400,
-      this.languageCode = 'en-US',
-      this.arrivalTemplate = 'You have arrived at {name}.',
-      this.approachTemplate = 'You are approaching {name}.'});
-  String name;
-  String? path;
-  LatLng point;
-  double radius;
-  String? approachPath;
-  double approachRadius;
-  String languageCode;
-  String arrivalTemplate;
-  String approachTemplate;
-
-  Map<String, dynamic> toJson() => {
-    'n': name, 'p': path, 'lat': point.latitude, 'lng': point.longitude,
-    'r': radius, 'ap': approachPath, 'ar': approachRadius,
-    'lang': languageCode,
-    'arrivalTemplate': arrivalTemplate,
-    'approachTemplate': approachTemplate,
-  };
-
-  factory VoiceTrigger.fromJson(Map<String, dynamic> j) => VoiceTrigger(
-    j['n'] as String? ?? 'Location',
-    j['p'] as String?,
-    LatLng((j['lat'] as num).toDouble(), (j['lng'] as num).toDouble()),
-    (j['r'] as num).toDouble(),
-    approachPath: j['ap'] as String?,
-    approachRadius: (j['ar'] as num?)?.toDouble() ?? 400,
-    languageCode: j['lang'] as String? ?? 'en-US',
-    arrivalTemplate: j['arrivalTemplate'] as String? ?? 'You have arrived at {name}.',
-    approachTemplate: j['approachTemplate'] as String? ?? 'You are approaching {name}.',
-  );
-}
-
-// ---------- Riverpod application state ----------
-class VoiceTriggersController extends Notifier<List<VoiceTrigger>> {
-  @override
-  List<VoiceTrigger> build() => [];
-
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList('triggers') ?? [];
-    state = raw.map((value) =>
-        VoiceTrigger.fromJson(jsonDecode(value) as Map<String, dynamic>)).toList();
-  }
-
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      'triggers',
-      state.map((trigger) => jsonEncode(trigger.toJson())).toList(),
-    );
-  }
-
-  Future<void> add(VoiceTrigger trigger) async {
-    state = [...state, trigger];
-    await _persist();
-  }
-
-  Future<VoiceTrigger> removeAt(int index) async {
-    final updated = [...state];
-    final removed = updated.removeAt(index);
-    state = updated;
-    await _persist();
-    return removed;
-  }
-
-  Future<void> reorder(int oldIndex, int newIndex) async {
-    final updated = [...state];
-    updated.insert(newIndex, updated.removeAt(oldIndex));
-    state = updated;
-    await _persist();
-  }
-}
-
-final voiceTriggersProvider =
-    NotifierProvider<VoiceTriggersController, List<VoiceTrigger>>(
-  VoiceTriggersController.new,
-);
-
-class RouteProgress {
-  const RouteProgress({this.nextIndex = 0, this.approached = false});
-  final int nextIndex;
-  final bool approached;
-}
-
-class RouteProgressController extends Notifier<RouteProgress> {
-  @override
-  RouteProgress build() => const RouteProgress();
-
-  void select(int index) => state = RouteProgress(nextIndex: index);
-  void markApproached() =>
-      state = RouteProgress(nextIndex: state.nextIndex, approached: true);
-  void advance(int count) => state = RouteProgress(
-        nextIndex: count == 0 ? 0 : (state.nextIndex + 1) % count,
-      );
-  void resetApproached() =>
-      state = RouteProgress(nextIndex: state.nextIndex, approached: false);
-  void normalize(int count) {
-    if (count == 0 || state.nextIndex >= count) {
-      state = const RouteProgress();
-    }
-  }
-}
-
-final routeProgressProvider =
-    NotifierProvider<RouteProgressController, RouteProgress>(
-  RouteProgressController.new,
-);
 
 // ---------- Home ----------
-class Home extends ConsumerStatefulWidget {
+class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
-  ConsumerState<Home> createState() => _HomeState();
+  State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends ConsumerState<Home> {
+class _HomeState extends State<Home> {
+  final voiceController = Get.find<VoiceTriggersController>();
+  final routeProgress = Get.find<RouteProgressController>();
   final player = AudioPlayer();
   final FlutterTts tts = FlutterTts();
   StreamSubscription<Position>? sub;
@@ -347,7 +248,7 @@ class _HomeState extends ConsumerState<Home> {
   @override
   void initState() {
     super.initState();
-    ref.read(voiceTriggersProvider.notifier).load();
+    voiceController.load();
     _initializeTts();
     _startTracking();
   }
@@ -467,10 +368,11 @@ class _HomeState extends ConsumerState<Home> {
   }
 
   void _onPosition(Position pos) {
-    final triggers = ref.read(voiceTriggersProvider);
+    final triggers = voiceController.triggers.toList();
     if (triggers.isEmpty || announcing) return;
-    final progress = ref.read(routeProgressProvider);
-    final index = progress.nextIndex >= triggers.length ? 0 : progress.nextIndex;
+    final nextIndex = routeProgress.nextIndex.value;
+    final approached = routeProgress.approached.value;
+    final index = nextIndex >= triggers.length ? 0 : nextIndex;
     final trigger = triggers[index];
     final distance = Geolocator.distanceBetween(
       pos.latitude, pos.longitude,
@@ -483,17 +385,17 @@ class _HomeState extends ConsumerState<Home> {
         icon: Icons.location_on,
       );
       _announce(trigger, arrived: true);
-      ref.read(routeProgressProvider.notifier).advance(triggers.length);
-    } else if (!progress.approached && distance <= trigger.approachRadius) {
-      ref.read(routeProgressProvider.notifier).markApproached();
+      routeProgress.advance(triggers.length);
+    } else if (!approached && distance <= trigger.approachRadius) {
+      routeProgress.markApproached();
       _showLocationNotification(
         title: 'Approaching ${trigger.name}',
         message: 'About ${distance.round()} m away.',
         icon: Icons.near_me,
       );
       _announce(trigger, arrived: false);
-    } else if (distance > trigger.approachRadius && progress.approached) {
-      ref.read(routeProgressProvider.notifier).resetApproached();
+    } else if (distance > trigger.approachRadius && approached) {
+      routeProgress.resetApproached();
     }
   }
 
@@ -503,15 +405,13 @@ class _HomeState extends ConsumerState<Home> {
       MaterialPageRoute(builder: (_) => const AddPage()),
     );
     if (trigger == null || !mounted) return;
-    await ref.read(voiceTriggersProvider.notifier).add(trigger);
+    await voiceController.add(trigger);
   }
 
   Future<void> _delete(int index) async {
     final trigger =
-        await ref.read(voiceTriggersProvider.notifier).removeAt(index);
-    ref.read(routeProgressProvider.notifier).normalize(
-          ref.read(voiceTriggersProvider).length,
-        );
+        await voiceController.removeAt(index);
+    routeProgress.normalize(voiceController.triggers.length);
     for (final file in [trigger.path, trigger.approachPath]) {
       if (file == null) continue;
       try {
@@ -524,10 +424,10 @@ class _HomeState extends ConsumerState<Home> {
 
   @override
   Widget build(BuildContext context) {
-    final triggers = ref.watch(voiceTriggersProvider);
-    final progress = ref.watch(routeProgressProvider);
-
-    return Scaffold(
+    return Obx(() {
+      final triggers = voiceController.triggers.toList();
+      final nextIndex = routeProgress.nextIndex.value;
+      return Scaffold(
       appBar: AppBar(
         title: const Text('PlayPlace'),
         actions: [
@@ -567,9 +467,8 @@ class _HomeState extends ConsumerState<Home> {
               itemCount: triggers.length,
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex--;
-                ref.read(voiceTriggersProvider.notifier)
-                    .reorder(oldIndex, newIndex);
-                ref.read(routeProgressProvider.notifier).select(0);
+                voiceController.reorder(oldIndex, newIndex);
+                routeProgress.select(0);
               },
               itemBuilder: (_, index) {
                 final trigger = triggers[index];
@@ -587,10 +486,8 @@ class _HomeState extends ConsumerState<Home> {
                           border: Border.all(color: const Color(0xFF80B996).withOpacity(0.30)),
                         ),
                         child: ListTile(
-                  selected: index == progress.nextIndex,
-                  onTap: () => ref
-                      .read(routeProgressProvider.notifier)
-                      .select(index),
+                  selected: index == nextIndex,
+                  onTap: () => routeProgress.select(index),
                   title: Text('${index + 1}. ${trigger.name}'),
                   subtitle: Text(
                     '${trigger.point.latitude.toStringAsFixed(5)}, '
@@ -613,7 +510,8 @@ class _HomeState extends ConsumerState<Home> {
               },
             ),
       ),
-    );
+      );
+    });
   }
 }
 
