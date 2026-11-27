@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'super_admin_controller.dart';
+import 'admin_controller.dart';
 import 'admin_dashboard_page.dart';
 import 'admin_login_page.dart';
 import 'super_admin_dashboard_page.dart';
@@ -31,6 +32,7 @@ class AdminGate extends StatelessWidget {
         const Text('This account does not have an active admin role.'),
         FilledButton(onPressed:()async{await FirebaseAuth.instance.signOut();if(context.mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AdminGate()),(_)=>false);},child:const Text('Sign out'))
        ])));
+      if (!Get.isRegistered<AdminController>()) Get.put(AdminController());
       return const AdminDashboardPage();
      });
    });
