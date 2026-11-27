@@ -46,10 +46,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'bus_routes_page.dart';
 import 'driver_calendar_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 
 
-void main() {
+void main() async{
+
+// ...
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const ProviderScope(child: PlayPlaceApp()));
 }
 
@@ -995,9 +1003,9 @@ class _AddPageState extends State<AddPage> {
               ),
             ),
           ),
-        ],
+          ])
       ),
-      ),
-    );
+      );
+
   }
 }
