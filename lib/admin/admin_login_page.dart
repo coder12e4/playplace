@@ -10,7 +10,7 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
  bool signup=false,busy=false,hide=true;String?error;
  @override void dispose(){email.dispose();password.dispose();super.dispose();}
  Future<void>submit()async{
-  if(busy)return;setState(()=>{busy=true,error=null});
+  if(busy)return;setState(() { busy=true; error=null; });
   try{
    final mail=email.text.trim().toLowerCase();
    if(!mail.contains('@')||password.text.length<6)throw FirebaseAuthException(code:'invalid-input',message:'Enter a valid email and a password of at least 6 characters.');
@@ -43,7 +43,7 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
      const SizedBox(height:12),TextField(controller:password,obscureText:hide,decoration:InputDecoration(labelText:'Password',prefixIcon:const Icon(Icons.lock_outline),suffixIcon:IconButton(onPressed:()=>setState(()=>hide=!hide),icon:Icon(hide?Icons.visibility_outlined:Icons.visibility_off_outlined))),onSubmitted:(_)=>submit()),
      if(error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(error!,style:const TextStyle(color:Colors.red))),
      const SizedBox(height:18),FilledButton(onPressed:busy?null:submit,child:Padding(padding:const EdgeInsets.symmetric(vertical:12),child:busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Text(signup?'Create admin account':'Sign in'))),
-     TextButton(onPressed:busy?null:()=>setState(()=>{signup=!signup,error=null}),child:Text(signup?'Already registered? Sign in':'Have an invitation? Create account')),
+     TextButton(onPressed:busy?null:()=>setState(() { signup=!signup; error=null; }),child:Text(signup?'Already registered? Sign in':'Have an invitation? Create account')),
      const Text('Admin accounts can only be created with an invitation from an existing administrator.',textAlign:TextAlign.center,style:TextStyle(fontSize:12,color:Color(0xFF789080)))
     ])))))));
 }

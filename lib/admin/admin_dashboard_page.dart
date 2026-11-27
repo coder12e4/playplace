@@ -79,7 +79,7 @@ class _InviteDialogState extends State<_InviteDialog>{
   final value=email.text.trim().toLowerCase();if(!value.contains('@')){setState(()=>error='Enter a valid email.');return;}setState(()=>saving=true);
   try{
    await FirebaseFirestore.instance.collection('adminInvites').doc(value).set({'email':value,'status':'pending','invitedBy':FirebaseAuth.instance.currentUser!.uid,'createdAt':FieldValue.serverTimestamp(),'expiresAt':Timestamp.fromDate(DateTime.now().add(const Duration(days:7)))});
-   if(mounted)Navigator.pop(context);
+   if(mounted){Navigator.pop(context);ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Invitation created. Share the PlayPlace admin page URL with the invited person.')));}
   }on FirebaseException catch(e){if(mounted)setState(()=>error=e.message??'Could not invite admin.');}
   finally{if(mounted)setState(()=>saving=false);}
  }
