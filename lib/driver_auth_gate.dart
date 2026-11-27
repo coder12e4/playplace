@@ -53,7 +53,7 @@ class _DriverSignInPageState extends State<DriverSignInPage> {
             'status': 'pending', 'createdAt': FieldValue.serverTimestamp(),
           });
         } catch (error) {
-          await FirebaseAuth.instance.signOut();
+          try { await credential.user?.delete(); } catch (_) { await FirebaseAuth.instance.signOut(); }
           rethrow;
         }
       } else {
