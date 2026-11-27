@@ -59,7 +59,7 @@ class SuperAdminDashboardPage extends GetView<SuperAdminController> {
                       FilledButton(onPressed: () { Get.back(); controller.deletePackage(item); },
                         child: const Text('Delete'))])),
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent)),
-                ]))),
+                ])))),
             const SizedBox(height: 24),
             const Text('Administrator accounts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
