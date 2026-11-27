@@ -25,7 +25,7 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
      throw FirebaseAuthException(code:'no-invite',message:'No pending invitation exists for this email. Ask an existing admin to invite you.');
     }
     await inviteRef.update({'status':'accepted','uid':user.uid,'acceptedAt':FieldValue.serverTimestamp()});
-    await FirebaseFirestore.instance.collection('admins').doc(user.uid).set({'email':mail,'active':true,'source':'invitation','createdAt':FieldValue.serverTimestamp()});
+    await FirebaseFirestore.instance.collection('admins').doc(user.uid).set({'email':mail,'active':false,'source':'invitation_pending_approval','createdAt':FieldValue.serverTimestamp()});
    }
    if(mounted)Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder:(_)=>const AdminGate()),(_)=>false);
   }on FirebaseAuthException catch(e){if(mounted)setState(()=>error=e.message??e.code);}

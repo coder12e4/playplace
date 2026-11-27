@@ -10,7 +10,7 @@ service cloud.firestore {
    allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
    allow list: if isSuperAdmin();
    allow create: if signedIn() && request.auth.uid == uid && request.resource.data.email == request.auth.token.email
-    && request.resource.data.active == true && request.resource.data.source == 'invitation'
+    && request.resource.data.active == false && request.resource.data.source == 'invitation_pending_approval'
     && exists(/databases/$(database)/documents/adminInvites/$(request.auth.token.email))
     && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.status == 'accepted'
     && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.uid == request.auth.uid;
