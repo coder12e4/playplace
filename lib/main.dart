@@ -51,6 +51,7 @@ import 'features/routes/controllers/route_progress_controller.dart';
 import 'app/bindings/app_binding.dart';
 import 'admin/super_admin_dashboard_page.dart';
 import 'admin/super_admin_binding.dart';
+import 'admin/admin_binding.dart';
 import 'app/routes/app_routes.dart';
 import 'bus_routes_page.dart';
 import 'driver_calendar_page.dart';
@@ -79,7 +80,7 @@ class PlayPlaceApp extends StatelessWidget {
       initialRoute: kIsWeb ? AppRoutes.admin : AppRoutes.driver,
       getPages: [
         GetPage(name: AppRoutes.driver, page: () => const DriverAuthGate()),
-        GetPage(name: AppRoutes.admin, page: () => const AdminGate()),
+        GetPage(name: AppRoutes.admin, page: () => const AdminGate(), binding: AdminBinding()),
         GetPage(name: AppRoutes.superAdmin, page: () => const SuperAdminDashboardPage(), binding: SuperAdminBinding()),
         GetPage(name: AppRoutes.home, page: () => const Home()),
       ],
