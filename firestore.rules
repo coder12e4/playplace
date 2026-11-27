@@ -18,10 +18,11 @@ service cloud.firestore {
    allow create,delete: if isAdmin();
    allow get: if isAdmin() || (signedIn() && request.auth.token.email == email);
    allow list: if isAdmin();
-   allow update: if signedIn() && request.auth.token.email == email && resource.data.status == 'pending'
+   allow update: if (isAdmin() && request.resource.data.email == email && request.resource.data.status == 'pending')
+    || (signedIn() && request.auth.token.email == email && resource.data.status == 'pending'
     && request.resource.data.status == 'accepted' && request.resource.data.uid == request.auth.uid
     && request.time < resource.data.expiresAt
-    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','uid','acceptedAt']);
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','uid','acceptedAt']));
   }
   match /buses/{busId} {allow read,write:if isAdmin();}
  }

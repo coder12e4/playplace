@@ -9,8 +9,8 @@ class AdminGate extends StatelessWidget {
   stream:FirebaseAuth.instance.authStateChanges(),builder:(context,auth){
    if(auth.connectionState==ConnectionState.waiting)return const _Wait();
    final user=auth.data;if(user==null)return const AdminLoginPage();
-   return FutureBuilder<DocumentSnapshot<Map<String,dynamic>>>(
-    future:FirebaseFirestore.instance.collection('admins').doc(user.uid).get(),
+   return StreamBuilder<DocumentSnapshot<Map<String,dynamic>>>(
+    stream:FirebaseFirestore.instance.collection('admins').doc(user.uid).snapshots(),
     builder:(context,role){
      if(role.connectionState==ConnectionState.waiting)return const _Wait();
      if(role.data?.exists!=true||role.data?.data()?['active']!=true)return Scaffold(
