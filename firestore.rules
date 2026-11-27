@@ -2,18 +2,23 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn(){return request.auth != null;}
-  function isAdmin(){return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;}
+  function isSuperAdmin(){return signedIn() && request.auth.token.email == 'zeohm_pply@777.com';}
+  function isAdmin(){return isSuperAdmin() || (signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true);}
   function hasDriverProfile(){return signedIn() && exists(/databases/$(database)/documents/driverProfiles/$(request.auth.uid));}
   function approvedDriverFor(busId){return hasDriverProfile() && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.status == 'approved' && get(/databases/$(database)/documents/driverProfiles/$(request.auth.uid)).data.busId == busId;}
   match /admins/{uid} {
    allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
-   allow list: if isAdmin();
+   allow list: if isSuperAdmin();
    allow create: if signedIn() && request.auth.uid == uid && request.resource.data.email == request.auth.token.email
     && request.resource.data.active == true && request.resource.data.source == 'invitation'
     && exists(/databases/$(database)/documents/adminInvites/$(request.auth.token.email))
     && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.status == 'accepted'
     && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.uid == request.auth.uid;
-   allow update,delete: if isAdmin();
+   allow update,delete: if isSuperAdmin();
+  }
+  match /subscriptionPackages/{packageId} {
+   allow read: if isAdmin();
+   allow create,update,delete: if isSuperAdmin();
   }
   match /adminInvites/{email} {
    allow create,delete: if isAdmin();
@@ -41,15 +46,11 @@ service cloud.firestore {
    allow create,update,delete: if isAdmin();
    match /routes/{routeId} { allow read,create,update,delete: if approvedDriverFor(busId) || isAdmin(); }
    match /locationEvents/{eventId} {
-    allow create: if approvedDriverFor(busId)
-      && request.resource.data.driverId == request.auth.uid
-      && request.resource.data.busId == busId;
+    allow create: if approvedDriverFor(busId) && request.resource.data.driverId == request.auth.uid && request.resource.data.busId == busId;
     allow read: if isAdmin();
    }
    match /locationStatus/{statusId} {
-    allow create,update: if approvedDriverFor(busId)
-      && request.resource.data.driverId == request.auth.uid
-      && request.resource.data.busId == busId;
+    allow create,update: if approvedDriverFor(busId) && request.resource.data.driverId == request.auth.uid && request.resource.data.busId == busId;
     allow get: if isAdmin();
    }
   }

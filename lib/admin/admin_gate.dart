@@ -3,12 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'admin_dashboard_page.dart';
 import 'admin_login_page.dart';
+import 'super_admin_dashboard_page.dart';
+
+/// Prototype Super Admin identity. The password is entered at sign-in and is
+/// never stored in this source file.
+const String kSuperAdminEmail = 'zeohm_pply@777.com';
 
 class AdminGate extends StatelessWidget {
  const AdminGate({super.key});
  @override Widget build(BuildContext context) {
   final user=FirebaseAuth.instance.currentUser;
   if(user==null)return const AdminLoginPage();
+  if(user.email?.toLowerCase()==kSuperAdminEmail)return const SuperAdminDashboardPage();
   return FutureBuilder<DocumentSnapshot<Map<String,dynamic>>>(
    future:FirebaseFirestore.instance.collection('admins').doc(user.uid).get(),
    builder:(context,role){

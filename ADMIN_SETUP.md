@@ -1,14 +1,22 @@
-# PlayPlace admin, drivers, and route tracking setup
+# PlayPlace admin, Super Admin, drivers, and route tracking setup
 
 ## Firebase setup
 
-1. Enable Email/Password in Firebase Authentication.
-2. Create a Firestore database.
-3. Publish `firestore.rules`.
-4. Create the first administrator in Firebase Authentication. Copy the UID and manually create `admins/{uid}` in Firestore with `email` and `active: true`.
-5. Existing admins can invite more administrators. Invitations expire after seven days; the admin must share the admin page URL manually.
+1. Enable Email/Password in Firebase Authentication and create a Firestore database.
+2. Publish the repository's `firestore.rules`.
+3. Create a Firebase Authentication Email/Password user with email `zeohm_pply@777.com` and the password you choose. This is the fixed Super Admin login email used by the web portal.
+4. Open the web admin portal and sign in with that email and password. The app routes that email to the Super Admin dashboard.
+5. Existing Super Admin can invite other administrators. Invitees register with the exact invited email; invitations expire after seven days.
 
-Firebase Storage is not used by this version of PlayPlace. Do not deploy or enable Storage rules for the app.
+The Super Admin email is a prototype identity check used by the client and Firestore rules. The password is managed by Firebase Authentication and is not stored in this repository.
+
+## Super Admin dashboard
+
+- Create packages with a name, price in INR, duration in days, maximum buses, and comma-separated features.
+- Edit, enable, disable, or delete packages.
+- View administrator accounts, enable/disable access, and assign an active package.
+- Package assignments are stored in `admins/{uid}.subscription`, including start and expiry timestamps.
+- Pending admin invitations are visible and can be cancelled.
 
 ## Driver accounts and buses
 
@@ -22,9 +30,7 @@ Recorded announcement audio remains on the device that recorded it. It is delibe
 
 ## Background route tracking and admin dashboard
 
-When the driver starts a route, Android location tracking runs with a persistent foreground-service notification. GPS continues while the app is in the background, subject to Android location permissions and battery restrictions. At each detected stop arrival, the app writes a small event to `buses/{busId}/locationEvents` and updates `buses/{busId}/locationStatus/latest`. These are ordinary Firestore writes; the Firestore SDK queues writes when offline and syncs them after connectivity returns.
-
-The admin dashboard polls for the latest bus arrival status every 15 seconds. It does not use Firestore real-time streams. The driver must start route tracking while the app is visible; force-stopping the app or disabling location can stop tracking.
+When the driver starts a route, Android location tracking runs with a persistent foreground-service notification. GPS continues while the app is in the background, subject to Android location permissions and battery restrictions. At each detected stop arrival, the app writes an event to `buses/{busId}/locationEvents` and updates `buses/{busId}/locationStatus/latest`. The admin dashboard polls every 15 seconds.
 
 ## Private performance data
 

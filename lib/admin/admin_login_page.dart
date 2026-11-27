@@ -7,7 +7,7 @@ class AdminLoginPage extends StatefulWidget{
  @override State<AdminLoginPage>createState()=>_AdminLoginPageState();
 }
 class _AdminLoginPageState extends State<AdminLoginPage>{
- final email=TextEditingController(),password=TextEditingController();
+ final email=TextEditingController(text:kSuperAdminEmail),password=TextEditingController();
  bool signup=false,busy=false,hide=true;String?error;
  @override void dispose(){email.dispose();password.dispose();super.dispose();}
  Future<void>submit()async{
@@ -40,12 +40,12 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
     child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
      const CircleAvatar(radius:30,backgroundColor:Color(0xFF4EAA70),child:Icon(Icons.admin_panel_settings_outlined,color:Colors.white,size:32)),
      const SizedBox(height:18),const Text('PlayPlace Admin',textAlign:TextAlign.center,style:TextStyle(fontSize:27,fontWeight:FontWeight.w800,color:Color(0xFF17452D))),
-     const SizedBox(height:6),Text(signup?'Create your invited administrator account':'Sign in to manage buses and administrators',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xFF64816D))),
+     const SizedBox(height:6),Text(signup?'Create your invited administrator account':'Sign in to manage PlayPlace',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xFF64816D))),
      const SizedBox(height:24),TextField(controller:email,keyboardType:TextInputType.emailAddress,decoration:const InputDecoration(labelText:'Admin email',prefixIcon:Icon(Icons.email_outlined))),
      const SizedBox(height:12),TextField(controller:password,obscureText:hide,decoration:InputDecoration(labelText:'Password',prefixIcon:const Icon(Icons.lock_outline),suffixIcon:IconButton(onPressed:()=>setState(()=>hide=!hide),icon:Icon(hide?Icons.visibility_outlined:Icons.visibility_off_outlined))),onSubmitted:(_)=>submit()),
      if(error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(error!,style:const TextStyle(color:Colors.red))),
      const SizedBox(height:18),FilledButton(onPressed:busy?null:submit,child:Padding(padding:const EdgeInsets.symmetric(vertical:12),child:busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Text(signup?'Create admin account':'Sign in'))),
      TextButton(onPressed:busy?null:()=>setState(() { signup=!signup; error=null; }),child:Text(signup?'Already registered? Sign in':'Have an invitation? Create account')),
-     const Text('Admin accounts can only be created with an invitation from an existing administrator.',textAlign:TextAlign.center,style:TextStyle(fontSize:12,color:Color(0xFF789080)))
+     const Text('Super Admin email is prefilled. Other admin accounts require an invitation.',textAlign:TextAlign.center,style:TextStyle(fontSize:12,color:Color(0xFF789080)))
     ])))))));
 }
