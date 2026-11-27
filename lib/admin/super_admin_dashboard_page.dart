@@ -90,11 +90,11 @@ class _AdminTile extends StatelessWidget {
  const _AdminTile({required this.doc,required this.onChanged});final QueryDocumentSnapshot<Map<String,dynamic>> doc;final VoidCallback onChanged;
  @override Widget build(BuildContext context){final data=doc.data();final sub=data['subscription'] is Map?Map<String,dynamic>.from(data['subscription']):<String,dynamic>{};
   return _Panel(child:ListTile(contentPadding:EdgeInsets.zero,leading:CircleAvatar(child:Icon(data['active']==true?Icons.person:Icons.person_off_outlined)),
-   title:Text(data['email']?.toString()??doc.id),subtitle:Text('Status: ${data['active']==true?'Active':'Disabled'} · Plan: ${sub['packageName']??'No plan'}'),
+   title:Text(data['email']?.toString()??doc.id),subtitle:Text('Status: ${data['active']==true?'Active':(data['approvalStatus']=='pending'?'Awaiting approval':(data['approvalStatus']=='rejected'?'Rejected':'Disabled'))} · Plan: ${sub['packageName']??'No plan'}'),
    trailing:PopupMenuButton<String>(onSelected:(v)async{
-    if(v=='toggle'){await doc.reference.update({'active':data['active']!=true});onChanged();}
+    if(v=='approve'){await doc.reference.update({'active':true,'approvalStatus':'approved','approvedAt':FieldValue.serverTimestamp()});onChanged();}\n    if(v=='reject'){await doc.reference.update({'active':false,'approvalStatus':'rejected','rejectedAt':FieldValue.serverTimestamp()});onChanged();}\n    if(v=='toggle'){await doc.reference.update({'active':data['active']!=true});onChanged();}
     if(v=='assign'){final plans=await FirebaseFirestore.instance.collection('subscriptionPackages').where('active',isEqualTo:true).get();if(context.mounted)showDialog(context:context,builder:(_)=>_AssignDialog(admin:doc,packages:plans.docs,onChanged:onChanged));}
-   },itemBuilder:(_)=>[PopupMenuItem(value:'toggle',child:Text(data['active']==true?'Disable admin':'Enable admin')),const PopupMenuItem(value:'assign',child:Text('Assign subscription'))])));
+   },itemBuilder:(_)=>[if(data['approvalStatus']=='pending')const PopupMenuItem(value:'approve',child:Text('Approve admin')),if(data['approvalStatus']=='pending')const PopupMenuItem(value:'reject',child:Text('Reject admin')),if(data['approvalStatus']!='pending')PopupMenuItem(value:'toggle',child:Text(data['active']==true?'Disable admin':'Enable admin')),const PopupMenuItem(value:'assign',child:Text('Assign subscription'))])));
  }
 }
 class _AssignDialog extends StatefulWidget{
