@@ -9,7 +9,7 @@ class AdminLoginPage extends StatefulWidget{
 }
 class _AdminLoginPageState extends State<AdminLoginPage>{
  final email=TextEditingController(),password=TextEditingController();
- bool signup=false,busy=false,hide=true,checkingSetup=true,setupAvailable=false;
+ bool signup=false,busy=false,hide=true,checkingSetup=true,setupAvailable=false,superAdminLogin=false;
  String?error;
  @override void initState(){super.initState();_checkSetup();}
  Future<void>_checkSetup()async{
@@ -61,12 +61,18 @@ class _AdminLoginPageState extends State<AdminLoginPage>{
     child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
      const CircleAvatar(radius:30,backgroundColor:Color(0xFF4EAA70),child:Icon(Icons.admin_panel_settings_outlined,color:Colors.white,size:32)),
      const SizedBox(height:18),const Text('PlayPlace Admin',textAlign:TextAlign.center,style:TextStyle(fontSize:27,fontWeight:FontWeight.w800,color:Color(0xFF17452D))),
-     const SizedBox(height:6),Text(signup?(setupAvailable?'Set up the first Super Admin account':'Create your invited administrator account'):'Sign in to manage PlayPlace',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xFF64816D))),
+     const SizedBox(height:6),Text(signup?(setupAvailable?'Set up the first Super Admin account':'Create your invited administrator account'):(superAdminLogin?'Sign in with your Super Admin email address':'Sign in to manage PlayPlace'),textAlign:TextAlign.center,style:const TextStyle(color:Color(0xFF64816D))),
      const SizedBox(height:24),TextField(controller:email,keyboardType:TextInputType.emailAddress,decoration:const InputDecoration(labelText:'Email address',prefixIcon:Icon(Icons.email_outlined))),
      const SizedBox(height:12),TextField(controller:password,obscureText:hide,decoration:InputDecoration(labelText:'Password',prefixIcon:const Icon(Icons.lock_outline),suffixIcon:IconButton(onPressed:()=>setState(()=>hide=!hide),icon:Icon(hide?Icons.visibility_outlined:Icons.visibility_off_outlined))),onSubmitted:(_)=>submit()),
      if(error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(error!,style:const TextStyle(color:Colors.red))),
      const SizedBox(height:18),FilledButton(onPressed:busy||checkingSetup?null:submit,child:Padding(padding:const EdgeInsets.symmetric(vertical:12),child:busy?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Text(signup?(setupAvailable?'Create Super Admin account':'Create admin account'):'Sign in'))),
      TextButton(onPressed:busy||checkingSetup?null:()=>setState(() { signup=!signup; error=null; }),child:Text(signup?'Already registered? Sign in':(setupAvailable?'First time here? Set up Super Admin':'Have an invitation? Create account'))),
+     TextButton(
+      onPressed:busy||checkingSetup?null:(){
+       setState(() { signup=false; superAdminLogin=true; error=null; });
+      },
+      child:const Text('Super Admin? Login here'),
+     ),
      Text(checkingSetup?'Checking initial setup…':(setupAvailable?'Only the first account can claim Super Admin. Use your real email address.':'Administrator accounts require a Super Admin invitation.'),textAlign:TextAlign.center,style:const TextStyle(fontSize:12,color:Color(0xFF789080)))
     ])))))));
 }
