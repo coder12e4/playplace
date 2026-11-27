@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'super_admin_controller.dart';
 import 'admin_dashboard_page.dart';
 import 'admin_login_page.dart';
 import 'super_admin_dashboard_page.dart';
@@ -14,7 +16,10 @@ class AdminGate extends StatelessWidget {
    future:FirebaseFirestore.instance.collection('appConfig').doc('superAdmin').get(),
    builder:(context,owner){
     if(owner.connectionState==ConnectionState.waiting)return const Scaffold(backgroundColor:Color(0xFFEAF8EF),body:Center(child:CircularProgressIndicator(color:Color(0xFF328B55))));
-    if(owner.data?.exists==true && owner.data?.data()?['uid']==user.uid)return const SuperAdminDashboardPage();
+    if(owner.data?.exists==true && owner.data?.data()?['uid']==user.uid){
+     if(!Get.isRegistered<SuperAdminController>()) Get.put(SuperAdminController());
+     return const SuperAdminDashboardPage();
+    }
     return FutureBuilder<DocumentSnapshot<Map<String,dynamic>>>(
      future:FirebaseFirestore.instance.collection('admins').doc(user.uid).get(),
      builder:(context,role){

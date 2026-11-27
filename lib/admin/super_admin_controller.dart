@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 
 class SuperAdminController extends GetxController {
   final _db = FirebaseFirestore.instance;
@@ -64,7 +65,7 @@ class SuperAdminController extends GetxController {
     try {
       await item.reference.update({'active': approve,
         'approvalStatus': approve ? 'approved' : 'rejected',
-        approve ? 'approvedAt' : 'rejectedAt': FieldValue.serverTimestamp()});
+        (approve ? 'approvedAt' : 'rejectedAt'): FieldValue.serverTimestamp()});
       await refreshAll();
     } catch (e) { _error('Could not update administrator', e); }
   }
