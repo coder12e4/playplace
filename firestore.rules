@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn(){return request.auth != null;}
+  function isAdmin(){return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;}
+  match /admins/{uid} {
+   allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+   allow list: if isAdmin();
+   // Create the first admins/{uid} document manually in Firebase Console.
+   allow create: if signedIn() && request.auth.uid == uid && request.resource.data.email == request.auth.token.email
+    && request.resource.data.active == true && request.resource.data.source == 'invitation'
+    && exists(/databases/$(database)/documents/adminInvites/$(request.auth.token.email))
+    && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.status == 'accepted'
+    && get(/databases/$(database)/documents/adminInvites/$(request.auth.token.email)).data.uid == request.auth.uid;
+   allow update,delete: if isAdmin();
+  }
+  match /adminInvites/{email} {
+   allow create,delete: if isAdmin();
+   allow get: if isAdmin() || (signedIn() && request.auth.token.email == email);
+   allow list: if isAdmin();
+   allow update: if signedIn() && request.auth.token.email == email && resource.data.status == 'pending'
+    && request.resource.data.status == 'accepted' && request.resource.data.uid == request.auth.uid
+    && request.time < resource.data.expiresAt
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','uid','acceptedAt']);
+  }
+  match /buses/{busId} {allow read,write:if isAdmin();}
+ }
+}
